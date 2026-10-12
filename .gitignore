@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+desktop-dist/
+release/
+outputs/
+work/
+*.tsbuildinfo
+*.log
+.env*
