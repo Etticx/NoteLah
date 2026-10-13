@@ -8,6 +8,8 @@ box with green and greener thing. similar like token used haha.
 
 Open `outputs/NoteLah-0.1.0.exe`. A build copy also lives in `release/`. This is a portable Windows application; Node.js and a web server are not needed to use it. The first launch opens a blank workspace. The optional sample workspace is a temporary demonstration and never changes your own saved data.
 
+To pin NoteLah to the Windows taskbar, keep the portable `.exe` in a permanent folder, open it, then right-click its taskbar icon and choose **Pin to taskbar**. If you pinned an older build and Windows says the executable is missing, unpin that shortcut and pin again after opening the updated build. Moving or renaming the portable `.exe` also requires pinning again.
+
 - **Today:** add tasks, keep notes, choose dates, complete work, and bring unfinished tasks forward.
 - **Later:** capture ideas without choosing a date, then schedule them when ready.
 - **My profile:** edit your name and bio, see completed work, and click a day in the green activity grid to revisit it.

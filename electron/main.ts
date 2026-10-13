@@ -9,6 +9,8 @@ import { localDate } from "../src/lib/dates";
 
 protocol.registerSchemesAsPrivileged([{ scheme: "notelah", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 app.setName("NoteLah");
+const appId = "local.notelah.desktop";
+if (process.platform === "win32") app.setAppUserModelId(appId);
 let window: BrowserWindow | null = null;
 let store: DatabaseStore;
 let dirty = false;
@@ -50,6 +52,11 @@ else {
         return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
       });
       window = new BrowserWindow({ width: 1240, height: 850, minWidth: 850, minHeight: 620, title: "NoteLah", icon: path.join(app.getAppPath(), "assets/icon.png"), backgroundColor: "#ffffff", autoHideMenuBar: true, show: false, webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+      if (process.platform === "win32" && app.isPackaged) {
+        // Portable builds run from a temporary folder that is removed on exit.
+        const launcher = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+        window.setAppDetails({ appId, appIconPath: launcher, appIconIndex: 0, relaunchCommand: `"${launcher}"`, relaunchDisplayName: "NoteLah" });
+      }
       window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
       window.webContents.on("will-navigate", (event, url) => { if (!url.startsWith("notelah://app/")) event.preventDefault(); });
       const trusted = (event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent) => {
