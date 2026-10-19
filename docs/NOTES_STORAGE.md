@@ -2,7 +2,7 @@
 
 ## The feature
 
-Notes is a new section alongside Today and Later. It supports flat folders, written notes, folder rename/delete, note editing/deletion, and keyword search. Deleting a folder moves its notes into Inbox. Desktop users can import UTF-8 TXT/Markdown files and PDF documents. Imported text is previewed without executing markup; PDFs open in the operating system's viewer. RAG, PDF extraction, nested folders, and task-to-note links are later work.
+Notes is a new section alongside Today and Later. It supports flat folders, written notes, folder rename/delete, note editing/deletion, and keyword search. Deleting a folder moves its notes into Inbox. Desktop users can import UTF-8 TXT/Markdown files and PDF documents. Imported text is previewed without executing markup; PDFs open in a separate sandboxed NoteLah viewer window with no app preload or IPC bridge. RAG, PDF extraction, nested folders, and task-to-note links are later work.
 
 ## Where the data lives
 

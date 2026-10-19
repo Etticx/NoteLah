@@ -12,7 +12,7 @@ To pin NoteLah to the Windows taskbar, keep the portable `.exe` in a permanent f
 
 - **Today:** add tasks, keep notes, choose dates, complete work, and bring unfinished tasks forward.
 - **Later:** capture ideas without choosing a date, then schedule them when ready.
-- **Notes:** create folders and written notes, import `.txt`, `.md`, and PDF files, search the library, and move notes between folders. Text imports have a read-only text preview; PDFs open in your usual PDF viewer. Chat extracts PDF text with page references for local AI search.
+- **Notes:** create folders and written notes, import `.txt`, `.md`, and PDF files, search the library, and move notes between folders. Text imports have a read-only text preview; PDFs open in NoteLah’s built-in viewer. Chat extracts PDF text with page references for local AI search.
 - **My profile:** edit your name and bio, see completed work, and click a day in the green activity grid to revisit it.
 - **Settings:** choose the start of the week, manage backups, restore, and export.
 

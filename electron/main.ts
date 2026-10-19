@@ -9,6 +9,7 @@ import { MAX_BACKUP_BYTES, tasksCSV, type RestorePreview, type StorageInfo } fro
 import type { FileContents } from "./library";
 import { localDate } from "../src/lib/dates";
 import { RagService, ragRequestSchema } from "./rag";
+import { PdfViewer } from "./pdf-viewer";
 
 protocol.registerSchemesAsPrivileged([{ scheme: "notelah", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 app.setName("NoteLah");
@@ -23,6 +24,7 @@ if (testDirectory) {
 let window: BrowserWindow | null = null;
 let store: DatabaseStore;
 let rag: RagService;
+const pdfViewer = new PdfViewer();
 let dirty = false;
 let closingDialog = false;
 let queue: Promise<unknown> = Promise.resolve();
@@ -106,6 +108,10 @@ else {
         const note = store.load().notes.find((note) => note.id === id);
         if (!note?.file) throw new Error("Choose an imported file.");
         await store.library.read(note.file);
+        if (note.file.extension === "pdf") {
+          await pdfViewer.open(store.library.location(note.file), note.file.name, window!);
+          return;
+        }
         const error = await shell.openPath(store.library.location(note.file));
         if (error) throw new Error(error);
       });
