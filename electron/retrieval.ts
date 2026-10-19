@@ -32,7 +32,7 @@ export function cosine(a: number[], b: number[]): number {
 
 export function bm25(chunks: Chunk[], question: string): { id: string; score: number }[] {
   const terms = [...new Set(tokenize(question))];
-  const docs = chunks.map((chunk) => tokenize(`${chunk.title}\n${chunk.text}`));
+  const docs = chunks.map((chunk) => tokenize(`${chunk.title}\n${chunk.sectionHeading ?? ""}\n${chunk.text}`));
   const average = docs.reduce((sum, words) => sum + words.length, 0) / (docs.length || 1);
   const frequency = new Map(terms.map((term) => [term, docs.reduce((sum, words) => sum + Number(words.includes(term)), 0)]));
   return docs.map((words, index) => {
@@ -61,20 +61,93 @@ export function fuse(keyword: { id: string }[], semantic: { id: string }[], k = 
   return [...scores.values()].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 }
 
-export function retrieve(chunks: Chunk[], question: string, vector: number[]): RagSource[] {
-  const keyword = bm25(chunks, question).slice(0, 20);
+export type Candidate = ReturnType<typeof fuse>[number];
+export type RetrievalMode = "hybrid" | "keyword" | "vector";
+// Small, transparent English query expansion for common field names. This adds
+// vocabulary, not user facts or previous conversation, and does not affect vectors.
+export function keywordQuery(question: string) {
+  const aliases: string[] = [];
+  if (/\b(study|studying|studies|education|degree|qualification|university|college)\b/i.test(question)) aliases.push("education degree qualifications university");
+  if (/\b(skills|tools|languages|programming)\b/i.test(question)) aliases.push("skills tools languages technical");
+  if (/\b(specialty|speciality|strengths|expertise|specialization)\b/i.test(question)) aliases.push("skills projects specialization");
+  return [question, ...aliases].join(" ");
+}
+export function rankCandidates(chunks: Chunk[], question: string, vector: number[], mode: RetrievalMode = "hybrid") {
+  const keyword = bm25(chunks, keywordQuery(question)).slice(0, 20);
   const semantic = chunks.map((chunk) => ({ id: chunk.id, score: cosine(chunk.vector, vector) })).filter((row) => row.score > 0).sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)).slice(0, 20);
-  const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-  const selected: RagSource[] = [];
-  const seen = new Set<string>();
-  let characters = 0;
-  for (const row of fuse(keyword, semantic)) {
-    const { vector: _, ...chunk } = byId.get(row.id)!;
-    const key = chunk.text.replace(/\s+/g, " ");
-    if (seen.has(key) || selected.filter((source) => source.noteId === chunk.noteId).length >= 3 || characters + chunk.text.length > 5500) continue;
-    seen.add(key); characters += chunk.text.length;
-    selected.push({ ...chunk, ...row, label: selected.length + 1 });
-    if (selected.length >= 6) break;
+  return { candidates: fuse(mode === "vector" ? [] : keyword, mode === "keyword" ? [] : semantic), keywordCount: keyword.length, vectorCount: semantic.length };
+}
+
+export function sourceContext(sources: RagSource[]) {
+  return sources.map((source) => ({ source: source.label, title: source.title, page: source.page, heading: source.sectionHeading, passage: source.text }));
+}
+export function contextBytes(sources: RagSource[]) { return new TextEncoder().encode(JSON.stringify(sourceContext(sources))).length; }
+
+function asSource(chunk: Chunk, candidate: Candidate): RagSource {
+  const { vector: _, ...source } = chunk;
+  return { ...source, ...candidate, label: 0 };
+}
+function labelled(sources: RagSource[]) { return sources.map((source, i) => ({ ...source, label: i + 1 })); }
+function mergeSources(sources: RagSource[]): RagSource[] {
+  const groups: RagSource[] = [];
+  for (const source of [...sources].sort((a, b) => a.noteId.localeCompare(b.noteId) || a.chunkIndex - b.chunkIndex)) {
+    const previous = groups.at(-1);
+    if (previous && previous.noteId === source.noteId && previous.page === source.page && previous.sectionHeading === source.sectionHeading && source.startOffset <= previous.endOffset + 1 && source.startOffset >= previous.startOffset) {
+      const overlap = Math.max(0, previous.endOffset - source.startOffset);
+      previous.text += (overlap ? "" : "\n") + source.text.slice(overlap);
+      previous.endOffset = Math.max(previous.endOffset, source.endOffset);
+      previous.id += `:${source.id}`;
+      previous.score = Math.max(previous.score, source.score);
+      const rank = (a: number | null, b: number | null) => a === null ? b : b === null ? a : Math.min(a, b);
+      previous.bm25Rank = rank(previous.bm25Rank, source.bm25Rank); previous.vectorRank = rank(previous.vectorRank, source.vectorRank);
+    } else groups.push({ ...source });
   }
-  return selected;
+  return groups;
+}
+
+export function selectContext(chunks: Chunk[], candidates: Candidate[], budgetBytes = 5500): RagSource[] {
+  if (!candidates.length) return [];
+  const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  const ranks = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+  const selected = new Map<string, RagSource>();
+  const finalize = (items: RagSource[]) => labelled(mergeSources(items).sort((a, b) => b.score - a.score || a.noteId.localeCompare(b.noteId) || a.chunkIndex - b.chunkIndex));
+  const fits = (items: RagSource[]) => { const result = finalize(items); return result.length <= 16 && contextBytes(result) <= budgetBytes; };
+  const best = byId.get(candidates[0].id);
+  // Full short documents are useful when this is the only document in scope,
+  // or both retrieval methods agree on a leading result. Never override folder scope.
+  if (best) {
+    const document = chunks.filter((chunk) => chunk.noteId === best.noteId);
+    const consensus = candidates[0].bm25Rank !== null && candidates[0].bm25Rank <= 3 && candidates[0].vectorRank !== null && candidates[0].vectorRank <= 3;
+    const uniqueNotes = new Set(chunks.map((chunk) => chunk.noteId)).size;
+    const whole = document.map((chunk) => asSource(chunk, ranks.get(chunk.id) ?? { id: chunk.id, score: candidates[0].score / 2, bm25Rank: null, vectorRank: null }));
+    if ((uniqueNotes === 1 || consensus) && document.length <= 20 && fits(whole)) {
+      for (const source of whole) selected.set(source.id, source);
+    }
+  }
+  const seen = new Set([...selected.values()].map((source) => source.text.replace(/\s+/g, " ")));
+  for (const candidate of candidates) {
+    if (selected.has(candidate.id)) continue;
+    const chunk = byId.get(candidate.id);
+    if (!chunk) continue;
+    const key = chunk.text.replace(/\s+/g, " ");
+    if (seen.has(key)) continue;
+    const source = asSource(chunk, candidate);
+    if (!fits([...selected.values(), source])) continue;
+    selected.set(source.id, source); seen.add(key);
+  }
+  // After ranked evidence, fill remaining space with adjacent context from the
+  // same section. Unrelated sections/documents cannot sneak in as neighbours.
+  for (const primary of [...selected.values()]) {
+    if (!primary.sectionHeading) continue;
+    for (const neighbour of chunks.filter((chunk) => chunk.noteId === primary.noteId && chunk.page === primary.page && chunk.sectionHeading === primary.sectionHeading && Math.abs(chunk.chunkIndex - primary.chunkIndex) === 1)) {
+      if (selected.has(neighbour.id)) continue;
+      const source = asSource(neighbour, ranks.get(neighbour.id) ?? { id: neighbour.id, score: primary.score / 2, bm25Rank: null, vectorRank: null });
+      if (fits([...selected.values(), source])) selected.set(source.id, source);
+    }
+  }
+  return finalize([...selected.values()]);
+}
+
+export function retrieve(chunks: Chunk[], question: string, vector: number[]): RagSource[] {
+  return selectContext(chunks, rankCandidates(chunks, question, vector).candidates);
 }

@@ -13,7 +13,7 @@ const { Ollama } = require(path.join(packed, 'electron/ollama.js'));
 class FixtureOllama extends Ollama {
   async models() { return [{ name: 'chat', digest: 'fixture-chat', chat: true, embedding: false }, { name: 'embed', digest: 'fixture-embed', chat: false, embedding: true }]; }
   async embed(_model, texts) { return texts.map(() => [1, 0]); }
-  async request() { return { message: { content: 'Submit a working prototype and slide deck [1]. The deadline is Friday at noon [2].' } }; }
+  async request() { return { message: { content: JSON.stringify({claims: [{text: 'Submit a working prototype and slide deck.', sources: [1]}, {text: 'The deadline is Friday at noon.', sources: [2]}], kind: 'answer'}) } }; }
 }
 (async () => {
   const root = path.resolve('work', `packed-chat-${crypto.randomUUID()}`);
