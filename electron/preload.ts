@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopAPI } from "../src/lib/model";
 
 const api: DesktopAPI = {
@@ -11,6 +11,11 @@ const api: DesktopAPI = {
   selectRestore: () => ipcRenderer.invoke("workspace:restore-preview"),
   restore: (token) => ipcRenderer.invoke("workspace:restore", token),
   importNotes: (folderId) => ipcRenderer.invoke("notes:import", folderId),
+  importDroppedNotes: async (folderId, files) => {
+    const paths = files.map((file) => webUtils.getPathForFile(file));
+    if (!paths.length || paths.some((file) => !file)) throw new Error("Drop files directly from File Explorer.");
+    return ipcRenderer.invoke("notes:import-dropped", { folderId, paths });
+  },
   openNoteFile: (noteId) => ipcRenderer.invoke("notes:open-file", noteId),
   openNotesFolder: () => ipcRenderer.invoke("notes:open-folder"),
 };

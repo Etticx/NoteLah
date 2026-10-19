@@ -49,3 +49,5 @@ Complete backups duplicate file bytes and therefore consume additional disk spac
 `tests/notes.test.ts` covers legacy migration/recovery, persistent notes/folders, invalid relationships, portable SQLite and JSON recovery of TXT/Markdown/PDF copies, damaged bytes, atomic imports, duplicate filenames, forged file references, deletion, and missing-file backup failures. The existing task-storage tests remain applicable.
 
 After `npm run build`, run `node scripts/notes-qa.cjs` for the repeatable desktop journey. It creates an isolated development profile under `work/`, substitutes native pickers with fixture paths, checks the real preload/IPC handlers and UI, and cleans up its data. It does not open the user's saved workspace.
+
+Files can be imported using the folder’s Import files button or by dragging PDF, TXT, and Markdown files from File Explorer into the selected collection. Drops use Electron webUtils.getPathForFile in the preload bridge and the same validated, atomic import pipeline as the native picker. Computer directories are not imported recursively.

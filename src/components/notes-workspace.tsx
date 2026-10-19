@@ -11,10 +11,21 @@ type Props = {
   state: WorkspaceState; info: StorageInfo | null; busy: boolean;
   onChange: (update: (state: WorkspaceState) => WorkspaceState) => void;
   onImport: (folderId: string | null) => void; onOpenFile: (id: string) => void;
+  onDropFiles: (folderId: string | null, files: File[]) => void;
   onDraftDirty: (dirty: boolean) => void;
 };
 
-export default function NotesWorkspace({ state, info, busy, onChange, onImport, onOpenFile, onDraftDirty }: Props) {
+export default function NotesWorkspace({ state, info, busy, onChange, onImport, onDropFiles, onOpenFile, onDraftDirty }: Props) {
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+  const canImport = !busy && info?.mode === "desktop";
+  useEffect(() => {
+    // Keep dropped documents from replacing the workspace with a browser preview.
+    const preventNavigation = (event: DragEvent) => { event.preventDefault(); };
+    window.addEventListener("dragover", preventNavigation);
+    window.addEventListener("drop", preventNavigation);
+    return () => { window.removeEventListener("dragover", preventNavigation); window.removeEventListener("drop", preventNavigation); };
+  }, []);
   const [folderId, setFolderId] = useState("all");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<{ note: Note; isNew: boolean } | null>(null);
@@ -38,9 +49,14 @@ export default function NotesWorkspace({ state, info, busy, onChange, onImport, 
         {state.folders.map((folder) => <div className="notes-folder-row" key={folder.id}><button className={`notes-folder${folderId === folder.id ? " active" : ""}`} aria-pressed={folderId === folder.id} onClick={() => setFolderId(folder.id)}><Folder size={15} /><span>{folder.name}</span><small>{state.notes.filter((note) => note.folderId === folder.id).length}</small></button><button className="icon-button" aria-label={`Rename folder ${folder.name}`} disabled={busy} onClick={() => setFolderEditor({ folder, name: folder.name })}><Pencil size={12} /></button><button className="icon-button" aria-label={`Delete folder ${folder.name}`} disabled={busy} onClick={() => setDeleting({ kind: "folder", id: folder.id, title: folder.name })}><Trash2 size={12} /></button></div>)}
         <button className="notes-new-folder" disabled={busy || !info} onClick={() => setFolderEditor({ folder: null, name: "" })}><Plus size={13} />Create folder</button>
       </aside>
-      <section className="notes-collection" aria-label="Notes collection">
+      <section className={`notes-collection${dragging ? " notes-drop-active" : ""}`} aria-label="Notes collection"
+        onDragEnter={(event) => { if (!event.dataTransfer.types.includes("Files")) return; event.preventDefault(); if (canImport) { dragDepth.current++; setDragging(true); } }}
+        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = canImport ? "copy" : "none"; }}
+        onDragLeave={() => { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false); }}
+        onDrop={(event) => { event.preventDefault(); dragDepth.current = 0; setDragging(false); if (canImport && event.dataTransfer.files.length) onDropFiles(destination, Array.from(event.dataTransfer.files)); }}>
+        {dragging && <div className="notes-drop-message" role="status"><Upload size={24} />Drop files into {selectedFolder?.name ?? "Inbox"}</div>}
         <div className="notes-collection-heading"><h2>{selectedFolder?.name ?? (folderId === "inbox" ? "Inbox" : "All notes")}<span className="section-count">{visible.length}</span></h2><label className="notes-search"><Search size={14} /><input aria-label="Search notes" placeholder="Find a note…" value={query} onChange={(event) => setQuery(event.target.value)} /></label></div>
-        {visible.length ? <div className="notes-grid">{[...visible].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((note) => <article className="note-card" key={note.id}><button className="note-card-content" onClick={() => setEditing({ note, isNew: false })}><span className="note-card-type"><FileText size={16} /><span>{note.file ? note.file.extension.toUpperCase() : "NOTE"}</span>{note.file && <small>{formatBytes(note.file.size)}</small>}</span><h3>{note.title}</h3><p>{note.body.trim().slice(0, 180) || (note.file?.extension === "pdf" ? "A PDF saved in your library. Open it in your PDF viewer." : "A little space for your next thought.")}</p><time dateTime={note.updatedAt}>{new Date(note.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time></button><button className="icon-button note-delete" aria-label={`Delete note ${note.title}`} disabled={busy} onClick={() => setDeleting({ kind: "note", id: note.id, title: note.title })}><Trash2 size={13} /></button></article>)}</div> : <div className="notes-empty"><FileText size={29} strokeWidth={1.2} /><h3>{query ? "No matching notes" : "A place for what you want to keep"}</h3><p>{query ? "Try a different word or another folder." : "Create a note here, or bring in a text file, Markdown document, or PDF."}</p>{!query && <button className="text-button" disabled={busy || !info} onClick={() => setEditing({ note: createNote("Untitled note", "", destination), isNew: true })}>Write your first note<Plus size={13} /></button>}</div>}
+        {visible.length ? <div className="notes-grid">{[...visible].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((note) => <article className="note-card" key={note.id}><button className="note-card-content" onClick={() => setEditing({ note, isNew: false })}><span className="note-card-type"><FileText size={16} /><span>{note.file ? note.file.extension.toUpperCase() : "NOTE"}</span>{note.file && <small>{formatBytes(note.file.size)}</small>}</span><h3>{note.title}</h3><p>{note.body.trim().slice(0, 180) || (note.file?.extension === "pdf" ? "A PDF saved in your library. Open it in your PDF viewer." : "A little space for your next thought.")}</p><time dateTime={note.updatedAt}>{new Date(note.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time></button><button className="icon-button note-delete" aria-label={`Delete note ${note.title}`} disabled={busy} onClick={() => setDeleting({ kind: "note", id: note.id, title: note.title })}><Trash2 size={13} /></button></article>)}</div> : <div className="notes-empty"><FileText size={29} strokeWidth={1.2} /><h3>{query ? "No matching notes" : "A place for what you want to keep"}</h3><p>{query ? "Try a different word or another folder." : "Create a note here, or bring in a text file, Markdown document, or PDF."}</p>{!query && <div className="notes-empty-actions"><button className="button primary" disabled={!canImport} aria-label={`Import files into ${selectedFolder?.name ?? "Inbox"}`} onClick={() => onImport(destination)}><Upload size={14} />Import files</button><button className="text-button" disabled={busy || !info} onClick={() => setEditing({ note: createNote("Untitled note", "", destination), isNew: true })}>Write your first note<Plus size={13} /></button></div>}{!query && info?.mode === "desktop" && <p className="notes-drop-hint">Or drag PDF, TXT, or Markdown files here</p>}</div>}
         <p className="notes-storage-hint">{info?.mode === "desktop" ? "Imported files are copied into NoteLah. Your originals stay where they are. Text files: up to 1 MB · PDFs: up to 20 MB · Library files: up to 50 MB." : "Written notes are saved in this browser. Use the Windows app to import TXT, Markdown, and PDF files."}</p>
       </section>
     </div>

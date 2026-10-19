@@ -181,7 +181,9 @@ export class DatabaseStore {
     for (const source of paths) {
       const extension = path.extname(source).slice(1).toLowerCase();
       if (!["txt", "md", "pdf"].includes(extension)) throw new Error("Choose a .txt, .md, or .pdf file.");
-      if ((await fs.stat(source)).size > MAX_FILE_BYTES) throw new Error("Choose a file smaller than 20 MB.");
+      const stat = await fs.stat(source);
+      if (!stat.isFile()) throw new Error("Choose individual TXT, Markdown, or PDF files rather than a computer folder.");
+      if (stat.size > MAX_FILE_BYTES) throw new Error("Choose a file smaller than 20 MB.");
       const bytes = await fs.readFile(source);
       if (bytes.length > MAX_FILE_BYTES) throw new Error("Choose a file smaller than 20 MB.");
       const name = path.basename(source);

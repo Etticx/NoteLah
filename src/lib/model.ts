@@ -64,6 +64,7 @@ export interface DesktopAPI {
   selectRestore(): Promise<RestorePreview | null>;
   restore(token: string): Promise<{ state: WorkspaceState; info: StorageInfo }>;
   importNotes(folderId: string | null): Promise<{ state: WorkspaceState; info: StorageInfo } | null>;
+  importDroppedNotes(folderId: string | null, files: File[]): Promise<{ state: WorkspaceState; info: StorageInfo }>;
   openNoteFile(noteId: string): Promise<void>;
   openNotesFolder(): Promise<void>;
 }

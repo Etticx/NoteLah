@@ -81,6 +81,11 @@ else {
         const state = await store.importFiles(result.filePaths, folderId);
         return { state, info: info() };
       });
+      handle("notes:import-dropped", async (argument) => {
+        const { folderId, paths } = z.object({ folderId: z.string().uuid().nullable(), paths: z.array(z.string().refine((file) => path.isAbsolute(file))).min(1).max(10) }).parse(argument);
+        const state = await store.importFiles(paths, folderId);
+        return { state, info: info() };
+      });
       handle("notes:open-file", async (argument) => {
         const id = z.string().uuid().parse(argument);
         const note = store.load().notes.find((note) => note.id === id);

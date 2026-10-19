@@ -99,6 +99,10 @@ h2 { font-size: 14px; font-weight: 600; letter-spacing: -.2px; }
 .notes-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 62px 20px; border: 1px dashed var(--line); border-radius: 7px; color: var(--muted); gap: 17px; }
 .notes-empty h3 { color: var(--ink); font-size: 15px; font-weight: 500; }
 .notes-empty p { max-width: 310px; font-size: 12px; line-height: 1.9; }
+.notes-empty-actions { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.notes-collection { position: relative; }
+.notes-drop-active { outline: 2px dashed var(--green); outline-offset: 8px; border-radius: 7px; }
+.notes-drop-message { position: absolute; inset: 0; z-index: 2; background: var(--green-soft); border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--ink); pointer-events: none; }
 .notes-storage-hint { color: var(--muted); font-size: 10px; line-height: 1.9; margin-top: 24px; }
 .note-editor-modal { width: min(720px, calc(100vw - 32px)); }
 .note-body { min-height: 260px; max-height: 45vh; resize: vertical; line-height: 1.9; }
