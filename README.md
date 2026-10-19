@@ -1,8 +1,18 @@
 # What is NoteLah
 
+NoteLah's original code is available under the [MIT License](LICENSE). Third-party components retain their own licences. See [third-party notices](THIRD_PARTY_NOTICES.md), [privacy and storage](PRIVACY.md), [AI and usage limitations](DISCLAIMER.md), and [contribution guidelines](CONTRIBUTING.md). The software is provided as-is; keep independent backups and verify AI answers against their sources.
+
+Maintainers: follow the [public release checklist](docs/OPEN_SOURCE_RELEASE.md) before publishing source or executable releases.
+
 It is a personal project intended to solve my daily problem, usually i have tons to do and i didn't jot it down. Thus,
 i forgot. So this app helps track my task and give some sense of accomplishment on the profile page when we have the
 box with green and greener thing. similar like token used haha.
+
+## Learning goals
+
+I also built NoteLah to learn retrieval-augmented generation (RAG) through a working application. Its local Chat implements document extraction, section-aware chunking, embeddings, hybrid retrieval using BM25 and vector similarity, reciprocal rank fusion (RRF), and answers with source references through Ollama. The project lets me explore retrieval quality, evaluate results, and understand the limitations of small local models. Implementation details and learning notes are in [docs/RAG.md](docs/RAG.md).
+
+AI agents for planning and task actions are a planned extension; they are not currently implemented.
 
 ## Use the Windows app
 

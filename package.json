@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "desktop": "npm run build && electron .",
     "package:win": "npm run build && electron-builder --win portable",
+    "licenses:generate": "node scripts/generate-licenses.mjs",
     "test": "tsx --test tests/*.test.ts",
     "preview": "node scripts/preview.mjs"
   },
@@ -39,6 +40,7 @@
     "typescript": "7.0.2"
   },
   "build": {
+    "beforePack": "./scripts/before-pack.cjs",
     "appId": "local.notelah.desktop",
     "productName": "NoteLah",
     "asar": true,
@@ -50,7 +52,11 @@
       "desktop-dist/**/*",
       "package.json",
       "assets/**/*",
-      "THIRD_PARTY_NOTICES.md"
+      "THIRD_PARTY_NOTICES.md",
+      "THIRD_PARTY_LICENSES.txt",
+      "LICENSE",
+      "PRIVACY.md",
+      "DISCLAIMER.md"
     ],
     "extraResources": [
       {
@@ -67,5 +73,5 @@
       "artifactName": "NoteLah-${version}.exe"
     }
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

@@ -8,3 +8,16 @@ work/
 *.tsbuildinfo
 *.log
 .env*
+THIRD_PARTY_LICENSES.txt
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.pem
+*.key
+*.p12
+*.pfx
+backups/
+models/
+blobs/
+manifests/
