@@ -2,18 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, FileText, Folder, HardDrive, Inbox, Leaf, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, MessageCircle, FileText, Folder, HardDrive, Inbox, Leaf, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import Modal from "./dialog";
 import ActivityGrid from "./activity-grid";
+import ChatWorkspace from "./chat-workspace";
 import NotesWorkspace, { formatBytes } from "./notes-workspace";
 import { createTask, emptyWorkspace, type RestorePreview, type StorageInfo, type Task, type WorkspaceState } from "@/lib/model";
 import { backupWorkspace, exportWorkspace, importBrowserFile, loadWorkspace, restoreBrowser, saveWorkspace } from "@/lib/storage";
 import { completionDay, friendlyDay, localDate, parseDay, shiftDay } from "@/lib/dates";
 
-type View = "today" | "later" | "notes" | "profile" | "settings";
+type View = "today" | "later" | "notes" | "chat" | "profile" | "settings";
 type Status = "loading" | "saved" | "saving" | "error";
 const navigation: { id: View; label: string; icon: typeof CalendarDays }[] = [
-  { id: "today", label: "Today", icon: CalendarDays }, { id: "later", label: "Later", icon: Inbox }, { id: "notes", label: "Notes", icon: FileText }, { id: "profile", label: "My profile", icon: UserRound }, { id: "settings", label: "Settings", icon: Settings2 },
+  { id: "today", label: "Today", icon: CalendarDays }, { id: "later", label: "Later", icon: Inbox }, { id: "notes", label: "Notes", icon: FileText }, { id: "chat", label: "Chat", icon: MessageCircle }, { id: "profile", label: "My profile", icon: UserRound }, { id: "settings", label: "Settings", icon: Settings2 },
 ];
 
 export default function Workspace() {
@@ -176,7 +177,8 @@ export default function Workspace() {
       {isSample && <div className="sample-banner"><span>Sample workspace · changes here aren't saved</span><button className="text-button" onClick={leaveSample}>Back to my workspace<ArrowRight size={13} /></button></div>}
       {status === "error" && <div className="error-banner" role="alert"><span>{error || "Your changes couldn't be saved."}</span><button className="text-button" onClick={() => info ? persist(stateRef.current) : window.location.reload()}>{info ? "Retry save" : "Try again"}</button></div>}
       <main className={`content content-${view}`}>
-        {status === "loading" ? <div className="loading-state"><FileText size={28} /><p>Opening your workspace…</p></div> : (view === "today" || view === "later") ? <>
+        <div hidden={view !== "chat"}><ChatWorkspace state={state} enabled={info?.mode === "desktop" && !isSample && status === "saved"} visible={view === "chat"} /></div>
+        {status === "loading" ? <div className="loading-state"><FileText size={28} /><p>Opening your workspace…</p></div> : view === "chat" ? null : (view === "today" || view === "later") ? <>
           <div className="page-heading"><div><div className="page-eyebrow">{view === "today" ? friendlyDay(selectedDay, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "A little space for what's next"}</div><h1>{view === "later" ? "Later" : selectedIsToday ? "Today" : friendlyDay(selectedDay, { weekday: "long" })}<span className="heading-period">.</span></h1><p className="page-subtitle">{view === "later" ? "Catch a thought. Give it a day when you're ready." : visible.length ? `${completed.length} of ${visible.length} tasks completed${pending.length === 0 ? " · You're all done for this day." : ""}` : "What would you like to get done?"}</p></div>{view === "today" && <div className="date-actions"><button className="icon-button" aria-label="Previous day" onClick={() => setSelectedDay(shiftDay(selectedDay, -1))}><ChevronLeft size={17} /></button><label className="date-picker"><CalendarDays size={15} /><input type="date" aria-label="Choose a day" value={selectedDay} onChange={(event) => event.target.value && setSelectedDay(event.target.value)} /></label><button className="icon-button" aria-label="Next day" onClick={() => setSelectedDay(shiftDay(selectedDay, 1))}><ChevronRight size={17} /></button></div>}</div>
           {view === "today" && <div className="week-strip" aria-label="Week overview">{week.map((day) => {
             const scheduled = state.tasks.filter((task) => task.plannedDate === day);

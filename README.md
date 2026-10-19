@@ -12,7 +12,7 @@ To pin NoteLah to the Windows taskbar, keep the portable `.exe` in a permanent f
 
 - **Today:** add tasks, keep notes, choose dates, complete work, and bring unfinished tasks forward.
 - **Later:** capture ideas without choosing a date, then schedule them when ready.
-- **Notes:** create folders and written notes, import `.txt`, `.md`, and PDF files, search the library, and move notes between folders. Text imports have a read-only text preview; PDFs open in your usual PDF viewer. PDF text extraction and AI search are future features.
+- **Notes:** create folders and written notes, import `.txt`, `.md`, and PDF files, search the library, and move notes between folders. Text imports have a read-only text preview; PDFs open in your usual PDF viewer. Chat extracts PDF text with page references for local AI search.
 - **My profile:** edit your name and bio, see completed work, and click a day in the green activity grid to revisit it.
 - **Settings:** choose the start of the week, manage backups, restore, and export.
 
@@ -45,6 +45,13 @@ npm run package:win
 
 `desktop` builds the Next.js static export and opens it in Electron. `package:win` builds the portable Windows executable in `release/`. Development and packaging require downloading open-source dependencies; the packaged application runs offline.
 
-The desktop app is intended for one person on one laptop. Cloud synchronization, RAG, and AI agents are not implemented. The Windows build is unsigned.
+The desktop app is intended for one person on one laptop. Chat implements local hybrid RAG (BM25 + vector similarity + reciprocal rank fusion) using Ollama. Cloud synchronization and AI agents are not implemented. The Windows build is unsigned.
 
 Open-source acknowledgments are in `THIRD_PARTY_NOTICES.md`. Dependency versions are locked in `package-lock.json`.
+
+
+### Local Chat
+
+Open **Chat** in the Windows app. Choose an installed chat model and embedding model, select all notes or a folder, and ask a question. The first question builds a local search index; later questions reuse unchanged embeddings. Ollama must be running. The initial setup uses `qwen3.5:2b-q4_K_M` for answers and `nomic-embed-text:latest` for embeddings (`ollama pull nomic-embed-text`). Models are downloaded once; inference uses only `127.0.0.1:11434`. Cloud models are excluded.
+
+Answers include clickable source labels and expandable retrieved passages with BM25/vector ranks and RRF scores. Stop cancels the current job. Chat history lasts only for the app session. The derived `%APPDATA%\NoteLah\search-index.sqlite` is separate from the notes database and is rebuilt after restoration as needed; it is not included in backups. Scanned PDFs need OCR, which is not included. See [RAG implementation and learning notes](docs/RAG.md).

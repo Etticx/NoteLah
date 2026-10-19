@@ -12,5 +12,7 @@ The application uses these open-source projects. Their licenses and notices are 
 - **Inter** — SIL Open Font License 1.1 — https://github.com/rsms/inter
 - **sql.js** — MIT; SQLite is public domain — https://github.com/sql-js/sql.js
 - **Zod** — MIT — https://github.com/colinhacks/zod
+- **PDF.js** — Apache-2.0 — https://github.com/mozilla/pdf.js (including bundled font and character-map notices).
+- **@napi-rs/canvas** — MIT — https://github.com/Brooooooklyn/canvas (PDF.js optional Node dependency).
 
 Fontsource packages the Inter font. Electron Builder, TypeScript, tsx, and Playwright are used for development, packaging, and testing.

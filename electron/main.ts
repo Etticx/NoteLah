@@ -8,6 +8,7 @@ import { DatabaseStore, atomicWrite } from "./database";
 import { MAX_BACKUP_BYTES, tasksCSV, type RestorePreview, type StorageInfo } from "../src/lib/model";
 import type { FileContents } from "./library";
 import { localDate } from "../src/lib/dates";
+import { RagService, ragRequestSchema } from "./rag";
 
 protocol.registerSchemesAsPrivileged([{ scheme: "notelah", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 app.setName("NoteLah");
@@ -21,6 +22,7 @@ if (testDirectory) {
 }
 let window: BrowserWindow | null = null;
 let store: DatabaseStore;
+let rag: RagService;
 let dirty = false;
 let closingDialog = false;
 let queue: Promise<unknown> = Promise.resolve();
@@ -45,6 +47,8 @@ else {
       store = new DatabaseStore(testDirectory ?? path.join(app.getPath("appData"), "NoteLah"));
       const wasm = app.isPackaged ? path.join(process.resourcesPath, "sql-wasm.wasm") : path.join(app.getAppPath(), "node_modules/sql.js/dist/sql-wasm.wasm");
       await store.initialize(wasm);
+      rag = new RagService(store);
+      await rag.initialize(wasm);
       const output = path.join(app.getAppPath(), "out");
       protocol.handle("notelah", async (request) => {
         const url = new URL(request.url);
@@ -72,6 +76,17 @@ else {
       function handle(channel: string, operation: (argument: unknown) => Promise<unknown>) {
         ipcMain.handle(channel, (event, argument) => { trusted(event); return serial(() => operation(argument)); });
       }
+      // Long inference jobs must not block workspace saves or cancellation.
+      ipcMain.handle("chat:models", (event) => { trusted(event); return rag.models(); });
+      ipcMain.handle("chat:ask", async (event, argument) => { trusted(event); const request = ragRequestSchema.parse(argument); await queue; return rag.ask(request); });
+      ipcMain.handle("chat:status", (event) => { trusted(event); return rag.status; });
+      ipcMain.handle("chat:cancel", (event) => { trusted(event); rag.cancel(); });
+      ipcMain.handle("chat:reset-index", (event) => { trusted(event); return rag.rebuild(); });
+      handle("chat:source", async (argument) => {
+        const note = store.load().notes.find((note) => note.id === z.string().uuid().parse(argument));
+        if (!note) throw new Error("This source was deleted. Ask again to search your current notes.");
+        return note;
+      });
       handle("workspace:load", async () => ({ state: store.load(), info: info() }));
       handle("workspace:save", async (state) => { await store.save(state as Parameters<typeof store.save>[0]); return info(); });
       handle("notes:import", async (argument) => {
@@ -156,4 +171,4 @@ else {
   });
 }
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => { if (!dirty) store?.close(); });
+app.on("before-quit", () => { if (!dirty) { rag?.cancel(); store?.close(); } });

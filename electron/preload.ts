@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopAPI } from "../src/lib/model";
 
 const api: DesktopAPI = {
+  chatModels: () => ipcRenderer.invoke("chat:models"),
+  chatAsk: (request) => ipcRenderer.invoke("chat:ask", request),
+  chatStatus: () => ipcRenderer.invoke("chat:status"),
+  chatCancel: () => ipcRenderer.invoke("chat:cancel"),
+  chatResetIndex: () => ipcRenderer.invoke("chat:reset-index"),
+  chatSource: (noteId) => ipcRenderer.invoke("chat:source", noteId),
   load: () => ipcRenderer.invoke("workspace:load"),
   save: (state) => ipcRenderer.invoke("workspace:save", state),
   setDirty: (value) => ipcRenderer.send("workspace:dirty", value),
