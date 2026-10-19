@@ -18,6 +18,7 @@ const path = require('node:path');
     await page.setViewportSize({ width: 1420, height: 1000 });
     await page.getByRole('button', { name: 'Notes', exact: true }).click();
     await page.getByRole('heading', { name: 'Notes.' }).waitFor();
+    assert.equal(path.resolve((await page.evaluate(() => window.notelah.load())).info.location), path.join(root, 'data', 'notelah.sqlite'), 'Refuse to edit a workspace outside this isolated QA directory');
     await page.getByRole('button', { name: 'New folder', exact: true }).click();
     await page.getByLabel('Folder name', { exact: true }).fill('Degree Project');
     await page.getByRole('dialog').getByRole('button', { name: 'Create folder', exact: true }).click();

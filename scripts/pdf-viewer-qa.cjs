@@ -15,6 +15,7 @@ const { textPDF } = require('./chat-qa.cjs');
   try {
     const page = await app.firstWindow();
     await page.getByText('All changes saved', { exact: true }).waitFor();
+    assert.equal(path.resolve((await page.evaluate(() => window.notelah.load())).info.location), path.join(root, 'data', 'notelah.sqlite'), 'Refuse to edit a workspace outside this isolated QA directory');
     await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, fixture);
     const id = await page.evaluate(async () => (await window.notelah.importNotes(null)).state.notes[0].id);
     await fs.unlink(fixture);

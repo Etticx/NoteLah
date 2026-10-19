@@ -24,6 +24,7 @@ if (require.main === module) (async () => {
     const page = await app.firstWindow(); page.on('pageerror', error => errors.push(error.message));
     await page.setViewportSize({ width: 1240, height: 900 });
     await page.getByText('All changes saved', { exact: true }).waitFor();
+    assert.equal(path.resolve((await page.evaluate(() => window.notelah.load())).info.location), path.join(root, 'data', 'notelah.sqlite'), 'Refuse to edit a workspace outside this isolated QA directory');
     const fixture = await page.evaluate(async () => {
       const { state } = await window.notelah.load(); const now = new Date().toISOString();
       const folder = { id: crypto.randomUUID(), name: 'SDC Hackathon', createdAt: now, updatedAt: now };
