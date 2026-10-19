@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopAPI } from "../src/lib/model";
 
 const api: DesktopAPI = {
+  agentPlan: (request) => ipcRenderer.invoke("agent:plan", request),
+  agentApply: (token) => ipcRenderer.invoke("agent:apply", token),
+  agentUndo: (token) => ipcRenderer.invoke("agent:undo", token),
   chatModels: () => ipcRenderer.invoke("chat:models"),
   chatAsk: (request) => ipcRenderer.invoke("chat:ask", request),
   chatStatus: () => ipcRenderer.invoke("chat:status"),

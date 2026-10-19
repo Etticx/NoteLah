@@ -315,6 +315,17 @@ h2 { font-size: 14px; font-weight: 600; letter-spacing: -.2px; }
 .chat-settings { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
 .chat-settings label { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 9px; font-size: 11px; color: var(--muted); }
 .chat-settings select { padding: 9px; width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: 5px; color: var(--ink); font: inherit; }
+.agent-settings { display: flex; flex-wrap: wrap; gap: 16px; padding: 20px 0; }
+.agent-settings label { display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 12px; min-width: 120px; }
+.agent-settings input { border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); padding: 9px; width: 100%; min-width: 0; font: inherit; }
+.agent-settings .agent-preference { flex: 1; min-width: min(240px, 100%); }
+.agent-settings > p { flex-basis: 100%; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.agent-items { padding-left: 24px; }
+.agent-items li { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.agent-items li > span { margin-left: 12px; color: var(--muted); }
+.agent-items p { margin: 8px 0; }
+.agent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; }
+.agent-actions small { flex-basis: 100%; }
 .chat-conversation { min-height: 260px; padding: 25px 0; }
 .chat-welcome { padding: 35px 15px; text-align: center; color: var(--muted); display: flex; align-items: center; flex-direction: column; gap: 18px; }
 .chat-welcome h2 { font-size: 20px; color: var(--ink); font-weight: 500; }

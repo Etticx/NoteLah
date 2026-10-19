@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ChatModels, RagReply, RagRequest, RagStatus } from "./rag-types";
+import type { AgentRequest, AgentReply, AgentReceipt } from "./agent-types";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const date = new Date(`${value}T12:00:00Z`);
@@ -56,6 +57,9 @@ export type SaveResult = { canceled: boolean; path?: string };
 export type RestorePreview = { token: string; state: WorkspaceState; date: string | null; fileName: string };
 
 export interface DesktopAPI {
+  agentPlan(request: AgentRequest): Promise<AgentReply>;
+  agentApply(token: string): Promise<{ state: WorkspaceState; info: StorageInfo; receipt: AgentReceipt }>;
+  agentUndo(token: string): Promise<{ state: WorkspaceState; info: StorageInfo }>;
   chatModels(): Promise<ChatModels>;
   chatAsk(request: RagRequest): Promise<RagReply>;
   chatStatus(): Promise<RagStatus>;

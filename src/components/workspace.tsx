@@ -10,6 +10,7 @@ import NotesWorkspace, { formatBytes } from "./notes-workspace";
 import { createTask, emptyWorkspace, type RestorePreview, type StorageInfo, type Task, type WorkspaceState } from "@/lib/model";
 import { backupWorkspace, exportWorkspace, importBrowserFile, loadWorkspace, restoreBrowser, saveWorkspace } from "@/lib/storage";
 import { completionDay, friendlyDay, localDate, parseDay, shiftDay } from "@/lib/dates";
+import type { AgentReceipt } from "@/lib/agent-types";
 
 type View = "today" | "later" | "notes" | "chat" | "profile" | "settings";
 type Status = "loading" | "saved" | "saving" | "error";
@@ -44,6 +45,7 @@ export default function Workspace() {
   const addInput = useRef<HTMLInputElement>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const noteDraftDirty = useRef(false);
+  const agentMutation = useRef(false);
   const setNoteDraftDirty = useCallback((dirty: boolean) => { noteDraftDirty.current = dirty; window.notelah?.setDirty(dirty || statusRef.current === "saving" || statusRef.current === "error"); }, []);
 
   useEffect(() => { statusRef.current = status; }, [status]);
@@ -73,6 +75,7 @@ export default function Workspace() {
   const go = useCallback((target: View) => { setView(target); window.history.replaceState(null, "", `#${target}`); setMobileNav(false); if (target === "today") setSelectedDay(localDate()); setEntry(""); }, []);
 
   const persist = useCallback((next: WorkspaceState) => {
+    if (agentMutation.current) { setNotice("Wait for the plan change to finish before editing."); return; }
     if (sampleRef.current) { stateRef.current = next; setState(next); return; }
     stateRef.current = next; setState(next); statusRef.current = "saving"; setStatus("saving"); setError(""); window.notelah?.setDirty(true);
     const currentRevision = ++revision.current;
@@ -108,10 +111,22 @@ export default function Workspace() {
   const searchResults = useMemo(() => query.trim() ? state.tasks.filter((task) => `${task.title} ${task.note}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 30) : [...state.tasks].reverse().slice(0, 6), [query, state.tasks]);
 
   async function action(operation: () => Promise<void>) {
+    if (agentMutation.current) { setNotice("Wait for the plan change to finish."); return; }
     setBusy(true);
     try { if (sampleRef.current) throw new Error("Leave the sample workspace to manage your own backups and exports."); await queue.current; if (statusRef.current === "error") throw new Error("Save your changes before continuing. Use Retry in the save message."); await operation(); }
     catch (error) { setNotice((error as Error).message); }
     finally { setBusy(false); }
+  }
+
+  async function agentAction(kind: "apply" | "undo", token: string): Promise<AgentReceipt | undefined> {
+    if (agentMutation.current || sampleRef.current || !window.notelah || noteDraftDirty.current || statusRef.current !== "saved") throw new Error("Save your changes before applying or undoing a plan.");
+    agentMutation.current = true; setBusy(true);
+    try {
+      await queue.current;
+      const result = kind === "apply" ? await window.notelah.agentApply(token) : await window.notelah.agentUndo(token);
+      stateRef.current = result.state; setState(result.state); setInfo(result.info);
+      return "receipt" in result ? result.receipt as AgentReceipt : undefined;
+    } finally { agentMutation.current = false; setBusy(false); }
   }
 
   async function doBackup() { await action(async () => { const result = await backupWorkspace(stateRef.current); if (!result.canceled) { setNotice("Backup saved."); setInfo((current) => current ? { ...current, lastBackup: new Date().toISOString() } : current); } }); }
@@ -177,7 +192,7 @@ export default function Workspace() {
       {isSample && <div className="sample-banner"><span>Sample workspace · changes here aren't saved</span><button className="text-button" onClick={leaveSample}>Back to my workspace<ArrowRight size={13} /></button></div>}
       {status === "error" && <div className="error-banner" role="alert"><span>{error || "Your changes couldn't be saved."}</span><button className="text-button" onClick={() => info ? persist(stateRef.current) : window.location.reload()}>{info ? "Retry save" : "Try again"}</button></div>}
       <main className={`content content-${view}`}>
-        <div hidden={view !== "chat"}><ChatWorkspace state={state} enabled={info?.mode === "desktop" && !isSample && status === "saved"} visible={view === "chat"} /></div>
+        <div hidden={view !== "chat"}><ChatWorkspace state={state} enabled={info?.mode === "desktop" && !isSample && status === "saved"} visible={view === "chat"} onAgentAction={agentAction} /></div>
         {status === "loading" ? <div className="loading-state"><FileText size={28} /><p>Opening your workspace…</p></div> : view === "chat" ? null : (view === "today" || view === "later") ? <>
           <div className="page-heading"><div><div className="page-eyebrow">{view === "today" ? friendlyDay(selectedDay, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "A little space for what's next"}</div><h1>{view === "later" ? "Later" : selectedIsToday ? "Today" : friendlyDay(selectedDay, { weekday: "long" })}<span className="heading-period">.</span></h1><p className="page-subtitle">{view === "later" ? "Catch a thought. Give it a day when you're ready." : visible.length ? `${completed.length} of ${visible.length} tasks completed${pending.length === 0 ? " · You're all done for this day." : ""}` : "What would you like to get done?"}</p></div>{view === "today" && <div className="date-actions"><button className="icon-button" aria-label="Previous day" onClick={() => setSelectedDay(shiftDay(selectedDay, -1))}><ChevronLeft size={17} /></button><label className="date-picker"><CalendarDays size={15} /><input type="date" aria-label="Choose a day" value={selectedDay} onChange={(event) => event.target.value && setSelectedDay(event.target.value)} /></label><button className="icon-button" aria-label="Next day" onClick={() => setSelectedDay(shiftDay(selectedDay, 1))}><ChevronRight size={17} /></button></div>}</div>
           {view === "today" && <div className="week-strip" aria-label="Week overview">{week.map((day) => {

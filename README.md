@@ -12,7 +12,7 @@ box with green and greener thing. similar like token used haha.
 
 I also built NoteLah to learn retrieval-augmented generation (RAG) through a working application. Its local Chat implements document extraction, section-aware chunking, embeddings, hybrid retrieval using BM25 and vector similarity, reciprocal rank fusion (RRF), and answers with source references through Ollama. The project lets me explore retrieval quality, evaluate results, and understand the limitations of small local models. Implementation details and learning notes are in [docs/RAG.md](docs/RAG.md).
 
-AI agents for planning and task actions are a planned extension; they are not currently implemented.
+The desktop Chat also includes a bounded agent: it can inspect unfinished tasks, search notes, propose a day plan, or break a goal into suggested new tasks. Task additions and date changes require explicit approval. See [agent implementation and safeguards](docs/AGENT.md).
 
 ## Use the Windows app
 
@@ -55,12 +55,16 @@ npm run package:win
 
 `desktop` builds the Next.js static export and opens it in Electron. `package:win` builds the portable Windows executable in `release/`. Development and packaging require downloading open-source dependencies; the packaged application runs offline.
 
-The desktop app is intended for one person on one laptop. Chat implements local hybrid RAG (BM25 + vector similarity + reciprocal rank fusion) using Ollama. Cloud synchronization and AI agents are not implemented. The Windows build is unsigned.
+The desktop app is intended for one person on one laptop. Chat implements local hybrid RAG (BM25 + vector similarity + reciprocal rank fusion) and a day-planning agent using Ollama. Cloud synchronization is not implemented. The Windows build is unsigned.
 
 Open-source acknowledgments are in `THIRD_PARTY_NOTICES.md`. Dependency versions are locked in `package-lock.json`.
 
 
 ### Local Chat
+
+Choose **Ask my notes** for document questions or **Plan my day** to inspect unfinished tasks and propose a plan. The planner takes a date, available minutes, and an optional session preference. Review its task choices, estimated durations, date changes, activity log, and consulted notes before clicking **Apply plan**. Applying saves only task planned dates; durations and order stay in the chat. A complete backup precedes each apply/undo. Undo is available in the current session only while the workspace has no newer edits. See [agent details and limitations](docs/AGENT.md).
+
+Choose **Break down a goal**, or ask "what tasks do I need?" in Plan my day, for a suggested checklist. It can propose general research actions without a document, with assumptions and missing requirements labelled for verification. **Add tasks** saves the reviewed checklist in **Later**, without scheduling it or changing existing tasks. The whole checklist is not constrained to a single day's time budget. No web browsing is performed.
 
 Open **Chat** in the Windows app. Choose an installed chat model and embedding model, select all notes or a folder, and ask a question. The first question builds a local search index; later questions reuse unchanged embeddings. Ollama must be running. The initial setup uses `qwen3.5:2b-q4_K_M` for answers and `nomic-embed-text:latest` for embeddings (`ollama pull nomic-embed-text`). Models are downloaded once; inference uses only `127.0.0.1:11434`. Cloud models are excluded.
 

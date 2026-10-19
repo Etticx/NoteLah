@@ -10,6 +10,7 @@ import type { FileContents } from "./library";
 import { localDate } from "../src/lib/dates";
 import { RagService, ragRequestSchema } from "./rag";
 import { PdfViewer } from "./pdf-viewer";
+import { AgentService, agentRequestSchema } from "./agent";
 
 protocol.registerSchemesAsPrivileged([{ scheme: "notelah", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 app.setName("NoteLah");
@@ -24,6 +25,7 @@ if (testDirectory) {
 let window: BrowserWindow | null = null;
 let store: DatabaseStore;
 let rag: RagService;
+let agent: AgentService;
 const pdfViewer = new PdfViewer();
 let dirty = false;
 let closingDialog = false;
@@ -51,6 +53,7 @@ else {
       await store.initialize(wasm);
       rag = new RagService(store);
       await rag.initialize(wasm);
+      agent = new AgentService(store, rag);
       const output = path.join(app.getAppPath(), "out");
       protocol.handle("notelah", async (request) => {
         const url = new URL(request.url);
@@ -80,10 +83,13 @@ else {
       }
       // Long inference jobs must not block workspace saves or cancellation.
       ipcMain.handle("chat:models", (event) => { trusted(event); return rag.models(); });
-      ipcMain.handle("chat:ask", async (event, argument) => { trusted(event); const request = ragRequestSchema.parse(argument); await queue; return rag.ask(request); });
-      ipcMain.handle("chat:status", (event) => { trusted(event); return rag.status; });
-      ipcMain.handle("chat:cancel", (event) => { trusted(event); rag.cancel(); });
-      ipcMain.handle("chat:reset-index", (event) => { trusted(event); return rag.rebuild(); });
+      ipcMain.handle("chat:ask", async (event, argument) => { trusted(event); const request = ragRequestSchema.parse(argument); await queue; if (agent.status.busy) throw new Error("Stop the planner first."); return rag.ask(request); });
+      ipcMain.handle("chat:status", (event) => { trusted(event); return agent.status.busy ? agent.status : rag.status; });
+      ipcMain.handle("chat:cancel", (event) => { trusted(event); agent.cancel(); rag.cancel(); });
+      ipcMain.handle("chat:reset-index", (event) => { trusted(event); if (agent.status.busy) throw new Error("Stop the planner first."); return rag.rebuild(); });
+      ipcMain.handle("agent:plan", async (event, argument) => { trusted(event); const request = agentRequestSchema.parse(argument); await queue; if (rag.status.busy) throw new Error("Stop the current search first."); return agent.plan(request); });
+      handle("agent:apply", async argument => { if (dirty) throw new Error("Wait for your changes to save first."); const result = await agent.apply(z.string().uuid().parse(argument)); return { ...result, info: info() }; });
+      handle("agent:undo", async argument => { if (dirty) throw new Error("Wait for your changes to save first."); const state = await agent.undo(z.string().uuid().parse(argument)); return { state, info: info() }; });
       handle("chat:source", async (argument) => {
         const note = store.load().notes.find((note) => note.id === z.string().uuid().parse(argument));
         if (!note) throw new Error("This source was deleted. Ask again to search your current notes.");
@@ -159,7 +165,7 @@ else {
       handle("workspace:restore", async (token) => {
         if (!preview || preview.token !== token) throw new Error("Choose your backup again.");
         await store.backupBeforeRestore();
-        await store.restore(preview.state, previewFiles); preview = null; previewFiles = new Map();
+        await store.restore(preview.state, previewFiles); agent.clear(); preview = null; previewFiles = new Map();
         return { state: store.load(), info: info() };
       });
       window.on("close", (event) => {
@@ -177,4 +183,4 @@ else {
   });
 }
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => { if (!dirty) { rag?.cancel(); store?.close(); } });
+app.on("before-quit", () => { if (!dirty) { agent?.clear(); rag?.cancel(); store?.close(); } });

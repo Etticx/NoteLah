@@ -184,5 +184,26 @@ export class RagService {
       return reply(checked.answer, checked.kind, sources, warnings);
     });
   }
+  async search(input: { question: string; folderId: string | null; embeddingModel: string }, externalSignal: AbortSignal) {
+    const request = z.object({ question: z.string().trim().min(1).max(300), folderId: z.string().uuid().nullable(), embeddingModel: z.string().min(1).max(150) }).strict().parse(input);
+    return this.exclusive(async (internalSignal) => {
+      const signal = AbortSignal.any([internalSignal, externalSignal]);
+      signal.throwIfAborted();
+      const state = this.store.load();
+      if (request.folderId && !state.folders.some(f => f.id === request.folderId)) throw new Error("That notes folder no longer exists.");
+      this.progress("Preparing notes for the planner");
+      const embedding = (await this.ollama.models(signal)).find(m => m.embedding && m.name === request.embeddingModel);
+      if (!embedding) throw new Error("Select an installed local embedding model to search notes.");
+      const index = await this.sync(state, embedding.name, embedding.digest, signal);
+      const scoped = index.chunks.filter(c => !request.folderId || c.folderId === request.folderId);
+      if (!scoped.length) return { sources: [] as RagReply["sources"], warnings: [...index.warnings, "No searchable notes in the selected scope."] };
+      const [vector] = await this.ollama.embed(embedding.name, [`search_query: ${request.question}`], signal);
+      const ranked = rankCandidates(scoped, request.question, vector);
+      const sources = selectContext(scoped, ranked.candidates, 5000);
+      signal.throwIfAborted();
+      if (libraryFingerprint(this.store.load()) !== libraryFingerprint(state)) throw new Error("Notes changed during search. Try again.");
+      return { sources, warnings: index.warnings };
+    });
+  }
   close() { this.cancel(); this.db?.close(); }
 }

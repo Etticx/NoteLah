@@ -4,7 +4,7 @@ Planning baseline: 19 October 2026. This document describes the inspected applic
 
 Product baseline confirmed by the owner: **NoteLah currently provides task tracking only. Notes are a new capability to design and build.** Any note-related field found in the source is an implementation detail to assess during migration, not evidence of a delivered notes feature.
 
-Implementation update after this planning baseline: the new Notes module now implements folders, written notes, TXT/Markdown/PDF imports, complete file-aware backup/restore, and storage information. See [Notes storage and learning notes](NOTES_STORAGE.md) for the implemented design and checks. Task-to-note links, RAG, embeddings, and agents remain future work. The sections below preserve the original roadmap and baseline for learning purposes.
+Implementation update after this planning baseline: Notes implements folders, written notes, TXT/Markdown/PDF imports, complete file-aware backup/restore, and storage information. Chat implements hybrid RAG and a bounded day-planning agent. See [Notes storage](NOTES_STORAGE.md), [RAG](RAG.md), and [agent implementation](AGENT.md) for the current design and checks. Task-to-note links remain future work. The sections below preserve the original roadmap and baseline for learning purposes.
 
 ## 1. What we are building toward
 
