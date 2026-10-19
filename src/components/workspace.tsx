@@ -5,14 +5,15 @@ import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, FileText, Folder, HardDrive, Inbox, Leaf, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import Modal from "./dialog";
 import ActivityGrid from "./activity-grid";
+import NotesWorkspace, { formatBytes } from "./notes-workspace";
 import { createTask, emptyWorkspace, type RestorePreview, type StorageInfo, type Task, type WorkspaceState } from "@/lib/model";
 import { backupWorkspace, exportWorkspace, importBrowserFile, loadWorkspace, restoreBrowser, saveWorkspace } from "@/lib/storage";
 import { completionDay, friendlyDay, localDate, parseDay, shiftDay } from "@/lib/dates";
 
-type View = "today" | "later" | "profile" | "settings";
+type View = "today" | "later" | "notes" | "profile" | "settings";
 type Status = "loading" | "saved" | "saving" | "error";
 const navigation: { id: View; label: string; icon: typeof CalendarDays }[] = [
-  { id: "today", label: "Today", icon: CalendarDays }, { id: "later", label: "Later", icon: Inbox }, { id: "profile", label: "My profile", icon: UserRound }, { id: "settings", label: "Settings", icon: Settings2 },
+  { id: "today", label: "Today", icon: CalendarDays }, { id: "later", label: "Later", icon: Inbox }, { id: "notes", label: "Notes", icon: FileText }, { id: "profile", label: "My profile", icon: UserRound }, { id: "settings", label: "Settings", icon: Settings2 },
 ];
 
 export default function Workspace() {
@@ -41,16 +42,18 @@ export default function Workspace() {
   const statusRef = useRef(status);
   const addInput = useRef<HTMLInputElement>(null);
   const importInput = useRef<HTMLInputElement>(null);
+  const noteDraftDirty = useRef(false);
+  const setNoteDraftDirty = useCallback((dirty: boolean) => { noteDraftDirty.current = dirty; window.notelah?.setDirty(dirty || statusRef.current === "saving" || statusRef.current === "error"); }, []);
 
   useEffect(() => { statusRef.current = status; }, [status]);
   useEffect(() => {
     let mounted = true;
     setToday(localDate()); setSelectedDay(localDate());
     loadWorkspace().then((result) => { if (mounted) { stateRef.current = result.state; setState(result.state); setInfo(result.info); setStatus("saved"); } }).catch((error: Error) => { if (mounted) { setError(error.message); setStatus("error"); } });
-    const syncView = () => { const hash = window.location.hash.slice(1); if (navigation.some((item) => item.id === hash)) setView(hash as View); };
+    const syncView = () => { const hash = window.location.hash.slice(1); if (navigation.some((item) => item.id === hash)) { if (noteDraftDirty.current && hash !== "notes" && !window.confirm("Discard unsaved note changes?")) { window.history.replaceState(null, "", "#notes"); return; } setView(hash as View); } };
     syncView(); window.addEventListener("hashchange", syncView);
     const interval = window.setInterval(() => setToday(localDate()), 30000);
-    const unload = (event: BeforeUnloadEvent) => { if (statusRef.current === "saving" || statusRef.current === "error") { event.preventDefault(); } };
+    const unload = (event: BeforeUnloadEvent) => { if (noteDraftDirty.current || statusRef.current === "saving" || statusRef.current === "error") { event.preventDefault(); } };
     window.addEventListener("beforeunload", unload);
     return () => { mounted = false; clearInterval(interval); window.removeEventListener("hashchange", syncView); window.removeEventListener("beforeunload", unload); };
   }, []);
@@ -58,7 +61,7 @@ export default function Workspace() {
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen((open) => !open); }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") { event.preventDefault(); setView("today"); setSelectedDay(localDate()); setTimeout(() => addInput.current?.focus(), 0); }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n") { event.preventDefault(); if (noteDraftDirty.current && !window.confirm("Discard unsaved note changes?")) return; setView("today"); setSelectedDay(localDate()); setTimeout(() => addInput.current?.focus(), 0); }
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
@@ -73,7 +76,7 @@ export default function Workspace() {
     stateRef.current = next; setState(next); statusRef.current = "saving"; setStatus("saving"); setError(""); window.notelah?.setDirty(true);
     const currentRevision = ++revision.current;
     queue.current = queue.current.catch(() => undefined).then(() => saveWorkspace(next)).then((storageInfo) => {
-      if (currentRevision === revision.current) { setInfo(storageInfo); statusRef.current = "saved"; setStatus("saved"); window.notelah?.setDirty(false); }
+      if (currentRevision === revision.current) { setInfo(storageInfo); statusRef.current = "saved"; setStatus("saved"); window.notelah?.setDirty(noteDraftDirty.current); }
     }).catch((error: Error) => { if (currentRevision === revision.current) { statusRef.current = "error"; setStatus("error"); setError(error.message); } });
   }, []);
 
@@ -189,7 +192,7 @@ export default function Workspace() {
           {completed.length > 0 && <section className="completed-section"><div className="section-heading"><h2><CheckCheck size={16} />Completed<span className="section-count">{completed.length}</span></h2></div><TaskList items={completed} done /></section>}
           {view === "today" && <footer className="day-footer"><Leaf size={15} /><span>{completed.length ? "Every finished task leaves a little green." : "Your progress will find a home on your profile."}</span><button className="text-button" onClick={() => go("profile")}>View activity<ArrowUpRight size={13} /></button></footer>}
           {!state.tasks.length && info && <button className="sample-link" onClick={sampleWorkspace}>Want to look around first? Try a sample workspace <ArrowUpRight size={12} /></button>}
-        </> : view === "profile" ? <>
+        </> : view === "notes" ? <NotesWorkspace state={state} info={info} busy={busy} onChange={(update) => persist(update(stateRef.current))} onDraftDirty={setNoteDraftDirty} onImport={(folderId) => action(async () => { const result = await window.notelah!.importNotes(folderId); if (result) { stateRef.current = result.state; setState(result.state); setInfo(result.info); setNotice("Files copied into your library."); } })} onOpenFile={(id) => action(async () => { await window.notelah!.openNoteFile(id); })} /> : view === "profile" ? <>
           <div className="profile-cover"><div className="cover-lines" aria-hidden="true"><span /><span /><span /><span /><span /></div><span className="cover-label">THE DAYS ADD UP</span></div>
           <div className="profile-heading"><div className="profile-avatar">{initials}</div><button className="button secondary" onClick={() => setProfileOpen(true)}><Pencil size={14} />Edit profile</button></div>
           <h1 className="profile-name">{state.profile.name || "Your everyday"}<span className="heading-period">.</span></h1><p className="profile-role">{state.profile.role || "A small record of the things you do."}</p>{state.profile.bio && <p className="profile-bio">{state.profile.bio}</p>}
@@ -201,9 +204,10 @@ export default function Workspace() {
           <section className="settings-section"><h2>Workspace</h2><div className="setting-row"><div><h3>Start the week on</h3><p>Used in your planner and activity grid.</p></div><select aria-label="Start the week on" value={state.settings.weekStartsOn} disabled={!info} onChange={(event) => persist({ ...stateRef.current, settings: { ...stateRef.current.settings, weekStartsOn: Number(event.target.value) as 0 | 1 } })}><option value={1}>Monday</option><option value={0}>Sunday</option></select></div><div className="setting-row"><div><h3>Your profile</h3><p>A name, a few words, and your progress.</p></div><button className="button secondary" onClick={() => setProfileOpen(true)}>Edit profile</button></div></section>
           <section className="settings-section"><h2>Storage & backups</h2><div className="storage-notice"><HardDrive size={20} strokeWidth={1.5} /><div><strong>{info?.mode === "desktop" ? "Your work stays on this laptop" : "You're using the browser version"}</strong><p>{info?.mode === "desktop" ? "Saved in a local SQLite database. No account or internet needed." : "Saved in this browser's local storage. The Windows app uses SQLite and can back up to a folder."}</p></div></div><div className="setting-row"><div><h3>Automatic backups</h3><p>{info?.mode === "desktop" ? "One snapshot each day you open the app. The latest seven are kept." : "Keeps up to seven daily snapshots in this browser. Export a file for a separate copy."}</p></div><button className="switch" role="switch" aria-checked={state.settings.automaticBackups} aria-label="Automatic backups" disabled={!info} onClick={() => persist({ ...stateRef.current, settings: { ...stateRef.current.settings, automaticBackups: !stateRef.current.settings.automaticBackups } })}><span /></button></div>
           {info?.backupError && <p className="backup-warning" role="alert">{info.backupError} Choose an available backup folder below.</p>}
+          {info?.mode === "desktop" && <div className="setting-row"><div><h3>Imported files</h3><p>{formatBytes(info.filesBytes ?? 0)} in your library. Written notes are saved in the database.</p><p className="storage-path">{info.filesLocation}</p></div><button className="button secondary" disabled={busy} onClick={() => action(async () => { await window.notelah!.openNotesFolder(); })}><Folder size={14} />Open folder</button></div>}
           {info?.mode === "desktop" && <div className="setting-row"><div><h3>Backup folder</h3><p className="storage-path">{info.backupFolder}</p></div><button className="button secondary" disabled={busy} onClick={() => action(async () => { const result = await window.notelah!.chooseBackupFolder(); if (result) { setInfo(result); setNotice("Backup folder updated."); } })}><Folder size={14} />Choose folder</button></div>}
           <div className="setting-row"><div><h3>Back up now</h3><p>{info?.lastBackup ? `Last backup: ${new Date(info.lastBackup).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : "Save a separate copy somewhere you trust."}</p></div><button className="button secondary" disabled={busy || !info} onClick={doBackup}><ShieldCheck size={14} />Create backup</button></div><div className="setting-row"><div><h3>Restore a backup</h3><p>Preview a backup before replacing this workspace.</p></div><button className="button secondary" disabled={busy || !info} onClick={chooseRestore}><ArrowLeft size={14} />Restore</button></div></section>
-          <section className="settings-section"><h2>Take your work with you</h2><div className="setting-row"><div><h3>Export everything</h3><p>Tasks, profile, and settings. Can be imported back into NoteLah.</p></div><button className="button secondary" disabled={busy || !info} onClick={() => doExport("json")}><ArrowDownToLine size={14} />Export JSON</button></div><div className="setting-row"><div><h3>Export task list</h3><p>Open your tasks in Excel or another spreadsheet app.</p></div><button className="button secondary" disabled={busy || !info} onClick={() => doExport("csv")}><ArrowDownToLine size={14} />Export CSV</button></div></section>
+          <section className="settings-section"><h2>Take your work with you</h2><div className="setting-row"><div><h3>Export everything</h3><p>Tasks, notes, folders, and imported files. A complete copy you can restore.</p></div><button className="button secondary" disabled={busy || !info} onClick={() => doExport("json")}><ArrowDownToLine size={14} />Export JSON</button></div><div className="setting-row"><div><h3>Export task list</h3><p>Open your tasks in Excel or another spreadsheet app.</p></div><button className="button secondary" disabled={busy || !info} onClick={() => doExport("csv")}><ArrowDownToLine size={14} />Export CSV</button></div></section>
           <footer className="settings-footer"><FileText size={16} /><span>NoteLah · version 0.1.0</span><span>Made for the everyday.</span></footer>
         </>}
       </main>
@@ -212,7 +216,7 @@ export default function Workspace() {
     <Modal open={!!editing} onOpenChange={(open) => !open && setEditing(null)} title="A little more detail" description="Add a note or choose when you want to work on this.">{editing && <TaskEditor key={editing.id} task={editing} onSave={(fields) => { updateTask(editing.id, fields); setEditing(null); }} onCancel={() => setEditing(null)} />}</Modal>
     <Modal open={profileOpen} onOpenChange={setProfileOpen} title="Make it yours" description="A few words for your corner of NoteLah."><ProfileEditor profile={state.profile} onSave={(profile) => { persist({ ...stateRef.current, profile }); setProfileOpen(false); }} onCancel={() => setProfileOpen(false)} /></Modal>
     <Modal open={searchOpen} onOpenChange={(open) => { setSearchOpen(open); if (!open) setQuery(""); }} title="Find something" className="search-modal"><div className="search-field"><Search size={18} /><input aria-label="Search tasks and notes" placeholder="Search tasks and notes…" value={query} onChange={(event) => setQuery(event.target.value)} autoFocus /></div><p className="search-caption">{query ? "MATCHING TASKS" : "RECENT TASKS"}</p><div className="search-results">{searchResults.length ? searchResults.map((task) => <button key={task.id} className="search-result" onClick={() => { setSearchOpen(false); setEditing(task); }}><span>{task.completedAt ? <Check size={15} /> : <Circle size={13} />}</span><div><strong>{task.title}</strong><small>{task.plannedDate ? friendlyDay(task.plannedDate, { day: "numeric", month: "short", year: "numeric" }) : "Later"}{task.note ? ` · ${task.note.slice(0, 60)}` : ""}</small></div><ArrowUpRight size={14} /></button>) : <p className="quiet-empty">{query ? "Nothing matches that search." : "Add a task and you'll be able to find it here."}</p>}</div></Modal>
-    <Modal open={!!restore} onOpenChange={(open) => !busy && !open && setRestore(null)} title="Restore this workspace?" description="This replaces your current tasks, profile, and settings. A copy of your current workspace is saved first.">{restore && <><div className="restore-summary"><FileText size={22} /><div><strong>{restore.fileName}</strong><p>{restore.state.tasks.length} tasks · {restore.state.tasks.filter((task) => task.completedAt).length} completed</p>{restore.date && <p>Saved {new Date(restore.date).toLocaleString("en-GB")}</p>}</div></div><div className="modal-actions"><button className="button secondary" disabled={busy} onClick={() => setRestore(null)}>Cancel</button><button className="button primary" disabled={busy} onClick={confirmRestore}>{busy ? "Restoring…" : "Restore workspace"}</button></div></>}</Modal>
+    <Modal open={!!restore} onOpenChange={(open) => !busy && !open && setRestore(null)} title="Restore this workspace?" description="This replaces tasks, notes, folders, imported files, profile, and settings. A complete backup is saved first.">{restore && <><div className="restore-summary"><FileText size={22} /><div><strong>{restore.fileName}</strong><p>{restore.state.tasks.length} tasks · {restore.state.notes.length} notes · {restore.state.folders.length} folders</p>{restore.date && <p>Saved {new Date(restore.date).toLocaleString("en-GB")}</p>}</div></div><div className="modal-actions"><button className="button secondary" disabled={busy} onClick={() => setRestore(null)}>Cancel</button><button className="button primary" disabled={busy} onClick={confirmRestore}>{busy ? "Restoring…" : "Restore workspace"}</button></div></>}</Modal>
     <Modal open={!!deleteTask} onOpenChange={(open) => !open && setDeleteTask(null)} title="Delete this task?" description="This will also remove it from your activity history.">{deleteTask && <><p className="delete-title">{deleteTask.title}</p><div className="modal-actions"><button className="button secondary" onClick={() => setDeleteTask(null)}>Keep task</button><button className="button destructive" onClick={() => { persist({ ...stateRef.current, tasks: stateRef.current.tasks.filter((task) => task.id !== deleteTask.id) }); setDeleteTask(null); }}>Delete task</button></div></>}</Modal>
     {notice && <div className="toast" role="status" aria-live="polite"><span>{notice}</span><button className="icon-button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={15} /></button></div>}
   </div>;

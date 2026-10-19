@@ -12,8 +12,15 @@ To pin NoteLah to the Windows taskbar, keep the portable `.exe` in a permanent f
 
 - **Today:** add tasks, keep notes, choose dates, complete work, and bring unfinished tasks forward.
 - **Later:** capture ideas without choosing a date, then schedule them when ready.
+- **Notes:** create folders and written notes, import `.txt`, `.md`, and PDF files, search the library, and move notes between folders. Text imports have a read-only text preview; PDFs open in your usual PDF viewer. PDF text extraction and AI search are future features.
 - **My profile:** edit your name and bio, see completed work, and click a day in the green activity grid to revisit it.
 - **Settings:** choose the start of the week, manage backups, restore, and export.
+
+Written notes and folder information are stored in `%APPDATA%\NoteLah\notelah.sqlite`. Imported originals are copied into `%APPDATA%\NoteLah\files` using content-based filenames, so moving your source files does not break the library. Settings shows the exact folder and imported-file usage. The first upgrade saves a recovery copy of the old database before adding Notes.
+
+Use **Create backup** or **Export JSON** to make a complete copy, including imported files. Copying only the live database file does not include those external copies. Old task-only backups still restore. Deleting a folder moves its notes into Inbox; deleting a note removes its managed copy when nothing else uses it, while your original source file and existing complete backups are kept.
+
+Import limits: UTF-8 `.txt`/`.md` up to 1 MB each, PDFs up to 20 MB each, 10 files per import, and 50 MB of distinct imported files in the library. Backups are limited to 100 MB. The browser version supports written notes and folders; importing documents and restoring backups containing them requires the Windows app.
 
 
 ## Develop
@@ -38,6 +45,6 @@ npm run package:win
 
 `desktop` builds the Next.js static export and opens it in Electron. `package:win` builds the portable Windows executable in `release/`. Development and packaging require downloading open-source dependencies; the packaged application runs offline.
 
-The desktop app is intended for one person on one laptop. Cloud synchronization and native file attachments are not implemented. The Windows build is unsigned.
+The desktop app is intended for one person on one laptop. Cloud synchronization, RAG, and AI agents are not implemented. The Windows build is unsigned.
 
 Open-source acknowledgments are in `THIRD_PARTY_NOTICES.md`. Dependency versions are locked in `package-lock.json`.

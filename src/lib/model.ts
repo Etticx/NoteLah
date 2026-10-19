@@ -6,6 +6,17 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
 }, "Invalid calendar date");
 const timestamp = z.iso.datetime({ offset: true });
 
+export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_TEXT_BYTES = 1024 * 1024;
+export const MAX_LIBRARY_BYTES = 50 * 1024 * 1024;
+export const MAX_BACKUP_BYTES = 100 * 1024 * 1024;
+export const folderSchema = z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(100), createdAt: timestamp, updatedAt: timestamp });
+export const noteSchema = z.object({
+  id: z.string().uuid(), title: z.string().trim().min(1).max(300), body: z.string().max(MAX_TEXT_BYTES), folderId: z.string().uuid().nullable(),
+  file: z.object({ name: z.string().min(1).max(255), extension: z.enum(["txt", "md", "pdf"]), size: z.number().int().min(0).max(MAX_FILE_BYTES), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).nullable(),
+  createdAt: timestamp, updatedAt: timestamp,
+});
+
 export const taskSchema = z.object({
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(500),
@@ -17,18 +28,29 @@ export const taskSchema = z.object({
 });
 
 export const workspaceSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]).transform(() => 2 as const),
   tasks: z.array(taskSchema).max(50000).refine((tasks) => new Set(tasks.map((task) => task.id)).size === tasks.length, "Duplicate task IDs"),
+  folders: z.array(folderSchema).max(1000).default([]),
+  notes: z.array(noteSchema).max(10000).default([]),
   profile: z.object({ name: z.string().trim().max(100), role: z.string().trim().max(160), bio: z.string().max(1000) }),
   settings: z.object({ automaticBackups: z.boolean(), weekStartsOn: z.union([z.literal(0), z.literal(1)]) }),
+}).superRefine((state, context) => {
+  const folders = new Set(state.folders.map((folder) => folder.id));
+  if (folders.size !== state.folders.length || new Set(state.notes.map((note) => note.id)).size !== state.notes.length) context.addIssue({ code: "custom", message: "Duplicate library IDs" });
+  if (state.notes.some((note) => note.folderId !== null && !folders.has(note.folderId))) context.addIssue({ code: "custom", message: "A note belongs to a missing folder" });
+  const files = new Map(state.notes.filter((note) => note.file).map((note) => [fileKey(note.file!), note.file!.size]));
+  if ([...files.values()].reduce((total, size) => total + size, 0) > MAX_LIBRARY_BYTES) context.addIssue({ code: "custom", message: "Imported files must total no more than 50 MB" });
 });
 
-export const exportSchema = workspaceSchema.extend({ exportedAt: timestamp });
+export const exportSchema = workspaceSchema.safeExtend({ exportedAt: timestamp });
 
 export type Task = z.infer<typeof taskSchema>;
+export type Note = z.infer<typeof noteSchema>;
+export type NoteFolder = z.infer<typeof folderSchema>;
+export type NoteFile = NonNullable<Note["file"]>;
 export type WorkspaceState = z.infer<typeof workspaceSchema>;
 export type ExportBundle = z.infer<typeof exportSchema>;
-export type StorageInfo = { mode: "desktop" | "browser"; location: string; backupFolder: string | null; lastBackup: string | null; backupError?: string | null };
+export type StorageInfo = { mode: "desktop" | "browser"; location: string; backupFolder: string | null; lastBackup: string | null; backupError?: string | null; filesLocation?: string; filesBytes?: number };
 export type SaveResult = { canceled: boolean; path?: string };
 export type RestorePreview = { token: string; state: WorkspaceState; date: string | null; fileName: string };
 
@@ -41,10 +63,23 @@ export interface DesktopAPI {
   exportData(format: "json" | "csv"): Promise<SaveResult>;
   selectRestore(): Promise<RestorePreview | null>;
   restore(token: string): Promise<{ state: WorkspaceState; info: StorageInfo }>;
+  importNotes(folderId: string | null): Promise<{ state: WorkspaceState; info: StorageInfo } | null>;
+  openNoteFile(noteId: string): Promise<void>;
+  openNotesFolder(): Promise<void>;
 }
 
 export function emptyWorkspace(): WorkspaceState {
-  return { version: 1, tasks: [], profile: { name: "", role: "", bio: "" }, settings: { automaticBackups: true, weekStartsOn: 1 } };
+  return { version: 2, tasks: [], folders: [], notes: [], profile: { name: "", role: "", bio: "" }, settings: { automaticBackups: true, weekStartsOn: 1 } };
+}
+
+export function fileKey(file: NoteFile): string { return `${file.sha256}.${file.extension}`; }
+export function createFolder(name: string): NoteFolder {
+  const now = new Date().toISOString();
+  return folderSchema.parse({ id: crypto.randomUUID(), name, createdAt: now, updatedAt: now });
+}
+export function createNote(title: string, body: string, folderId: string | null): Note {
+  const now = new Date().toISOString();
+  return noteSchema.parse({ id: crypto.randomUUID(), title, body, folderId, file: null, createdAt: now, updatedAt: now });
 }
 
 export function createTask(title: string, plannedDate: string | null, note = ""): Task {
