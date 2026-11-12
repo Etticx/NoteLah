@@ -193,7 +193,7 @@ test("broad hackathon research asks for scope clarification before model calls o
 const breakdownQuestion = "so can u list down if i wanna research about my SDC hackathon project, what task i need to do? i have 2 domains im on second domain and has many SDG tracks";
 const proposeTasks = (drafts = [{ title: "Compare research problems in the selected domain", note: "Compare impact and feasibility for the second domain before choosing a problem." }, { title: "Verify the official brief and track requirements", note: "Read the organiser's brief; confirm eligible SDG tracks and tools." }]) => ({ tool: "propose_tasks", summary: "Suggested research checklist for your selected domain", query: "", drafts, assumptions: ["The official track names and rules still need to be verified."] });
 
-test("task-breakdown wording bypasses the overbroad research gate and drafts new unscheduled tasks with review and undo", async () => {
+test("task-breakdown wording bypasses the overbroad research gate and drafts new tasks for the chosen day with review and undo", async () => {
   const f = await setup();
   try {
     assert.equal(wantsTaskBreakdown(breakdownQuestion), true); assert.equal(planningClarification(breakdownQuestion), null);
@@ -211,7 +211,7 @@ test("task-breakdown wording bypasses the overbroad research gate and drafts new
     const added = await f.agent.apply(reply.token!); assert.equal(added.receipt.action, "create");
     assert.deepEqual(added.state.tasks.slice(0, f.state.tasks.length), f.state.tasks);
     assert.equal(added.state.tasks.length, f.state.tasks.length + 2);
-    assert.ok(added.state.tasks.slice(f.state.tasks.length).every(t => t.plannedDate === null && !t.completedAt && t.note.includes(breakdownQuestion)));
+    assert.ok(added.state.tasks.slice(f.state.tasks.length).every(t => t.plannedDate === f.request.date &&!t.completedAt && t.note.includes(breakdownQuestion)));
     assert.deepEqual(added.state.notes, f.state.notes); assert.deepEqual(added.state.profile, f.state.profile);
     await assert.rejects(() => f.agent.apply(reply.token!), /already|expired/);
     assert.deepEqual(await f.agent.undo(added.receipt.token), f.state);
