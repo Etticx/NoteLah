@@ -49,4 +49,6 @@ Run `npm run typecheck`, `npm test`, and `npm run build`. With the configured Qw
 
 `node scripts/agent-research-qa.cjs` checks a conversational hackathon research request with no matching task/brief, safe recovery from two deliberately malformed model responses, and switching to note search without changing any tasks. The scope clarification is deterministic; normal live-model tool use is tested by `agent-qa.cjs`. These checks are not a guarantee that every unsupported request will be correctly classified.
 
+`node scripts/today-prompt-qa.cjs` picks an example goal on Today in a fresh workspace and checks that it is sent to the agent exactly once, that approval creates the tasks on that day, and that the app returns to Today showing them.
+
 `node scripts/agent-breakdown-qa.cjs` uses the reported conversational hackathon task-list request with an unrelated existing task and no imported brief. It checks that the live model returns a new-task checklist, proposals leave data untouched, approval adds the tasks to the plan date and opens that day, unrelated tasks are preserved, and Undo restores the original fixture.
