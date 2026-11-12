@@ -53,11 +53,11 @@ export default function ChatWorkspace({ state, enabled, visible, onAgentAction }
   useEffect(() => { if (visible) end.current?.scrollIntoView({ block: "nearest" }); }, [turns, busy, visible]);
   useEffect(() => { if (folder && !state.folders.some((item) => item.id === folder)) setFolder(""); }, [state.folders, folder]);
 
-  async function ask(event: React.FormEvent) {
-    event.preventDefault();
-    if (!window.notelah || !enabled || busy || applying || !question.trim() || !chatModel || !embeddingModel) return;
+  const ask = (event: React.FormEvent) => { event.preventDefault(); void send(question.trim(), mode, date); };
+  // mode and date are arguments (shadowing state) so a hand-off can send before its state updates land.
+  async function send(text: string, mode: "notes" | "plan" | "breakdown", date: string) {
+    if (!window.notelah || !enabled || busy || applying || !text || !chatModel || !embeddingModel) return;
     if (mode !== "notes" && (!date ||!Number.isInteger(minutes) || minutes < 5 || minutes > 480)) { setError("Choose a plan date and 5–480 available minutes."); return; }
-    const text = question.trim();
     setQuestion(""); setBusy(true); setError(""); setProgress({ busy: true, message: "Starting local search", completed: 0, total: 0 });
     const index = turns.length;
     const history = turns.filter((turn) => turn.reply).slice(-4).map((turn) => ({ question: turn.question, answer: turn.reply!.answer }));
