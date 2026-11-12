@@ -127,7 +127,9 @@ export default function Workspace() {
       await queue.current;
       const result = kind === "apply" ? await window.notelah.agentApply(token) : await window.notelah.agentUndo(token);
       stateRef.current = result.state; setState(result.state); setInfo(result.info);
-      return "receipt" in result ? result.receipt as AgentReceipt : undefined;
+      const receipt = "receipt" in result ? result.receipt as AgentReceipt : undefined;
+      if (receipt) { go("today"); setSelectedDay(receipt.date); setNotice(`${receipt.tasks} task${receipt.tasks === 1 ? "" : "s"} ${receipt.action === "create" ? "added" : "scheduled"}. You can undo this in Chat.`); }
+      return receipt;
     } finally { agentMutation.current = false; setBusy(false); }
   }
 
