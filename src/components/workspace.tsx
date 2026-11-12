@@ -147,9 +147,9 @@ export default function Workspace() {
 
   function sampleWorkspace() {
     if (state.tasks.length) return;
-    const titles = ["Outline the first chapter", "Read a little, take a few notes", "Make time for a walk", "Finish the project proposal", "Tidy up the desk"];
-    const tasks = titles.map((title, index) => ({ ...createTask(title, today, index === 0 ? "Start with the main idea. The details can follow." : ""), completedAt: index >= 3 ? new Date().toISOString() : null }));
-    tasks.push(createTask("Try that idea for the weekend", null));
+    const titles = ["Outline the first chapter", "Read two papers", "Go for a walk", "Finish the project proposal", "Tidy the desk"];
+    const tasks = titles.map((title, index) => ({ ...createTask(title, today, index === 0 ? "Start with the main argument." : ""), completedAt: index >= 3 ? new Date().toISOString() : null }));
+    tasks.push(createTask("Plan the weekend", null));
     for (let offset = 1; offset < 100; offset++) if (offset % 4 !== 0 && offset % 7 !== 0) for (let i = 0; i < offset % 5 + 1; i++) {
       const date = shiftDay(today, -offset);
       const at = new Date(`${date}T12:00:00`).toISOString();
@@ -157,7 +157,6 @@ export default function Workspace() {
     }
     const sample = { ...stateRef.current, tasks, profile: { name: "Alex", role: "Student", bio: "Working through my final-year project." } };
     sampleRef.current = true; setIsSample(true); stateRef.current = sample; setState(sample);
-    setNotice("You're exploring a sample. Your own workspace stays separate.");
   }
 
   async function leaveSample() {
@@ -215,10 +214,9 @@ export default function Workspace() {
           {completed.length > 0 && <section className="completed-section"><div className="section-heading"><h2><CheckCheck size={16} />Completed<span className="section-count">{completed.length}</span></h2></div><TaskList items={completed} done /></section>}
           {!state.tasks.length && info && <button className="sample-link" onClick={sampleWorkspace}>Try a sample workspace<ArrowUpRight size={12} /></button>}
         </> : view === "notes" ? <NotesWorkspace state={state} info={info} busy={busy} onChange={(update) => persist(update(stateRef.current))} onDraftDirty={setNoteDraftDirty} onImport={(folderId) => action(async () => { const result = await window.notelah!.importNotes(folderId); if (result) { stateRef.current = result.state; setState(result.state); setInfo(result.info); setNotice("Files copied into your library."); } })} onDropFiles={(folderId, files) => action(async () => { const result = await window.notelah!.importDroppedNotes(folderId, files); stateRef.current = result.state; setState(result.state); setInfo(result.info); setNotice("Files copied into your library."); })} onOpenFile={(id) => action(async () => { await window.notelah!.openNoteFile(id); })} /> : view === "profile" ? <>
-          <div className="profile-cover"><div className="cover-lines" aria-hidden="true"><span /><span /><span /><span /><span /></div></div>
           <div className="profile-heading"><div className="profile-avatar">{initials}</div><button className="button secondary" onClick={() => setProfileOpen(true)}><Pencil size={14} />Edit profile</button></div>
           <h1 className="profile-name">{state.profile.name || "Your profile"}<span className="heading-period">.</span></h1>{state.profile.role && <p className="profile-role">{state.profile.role}</p>}{state.profile.bio && <p className="profile-bio">{state.profile.bio}</p>}
-          <div className="profile-stats"><div><strong>{completedAll.length}</strong><span>Tasks completed</span></div><div><strong>{activeDays}</strong><span>Days with progress</span></div><div><strong>{thisMonth}</strong><span>This month</span></div></div>
+          <div className="profile-stats"><div><strong>{completedAll.length}</strong><span>Tasks completed</span></div><div><strong>{activeDays}</strong><span>Active days</span></div><div><strong>{thisMonth}</strong><span>This month</span></div></div>
           <ActivityGrid tasks={state.tasks} weekStartsOn={state.settings.weekStartsOn} onDay={(day) => { go("today"); setSelectedDay(day); }} />
           <section className="recent-section"><div className="section-heading"><h2>Recently finished</h2></div>{completedAll.length ? [...completedAll].sort((a, b) => b.completedAt!.localeCompare(a.completedAt!)).slice(0, 5).map((task) => <button className="recent-row" key={task.id} onClick={() => setEditing(task)}><span className="recent-check"><Check size={12} /></span><span>{task.title}</span><time>{friendlyDay(completionDay(task.completedAt!), { day: "numeric", month: "short" })}</time></button>) : <p className="quiet-empty">Your finished tasks will appear here.</p>}</section>
         </> : <>
