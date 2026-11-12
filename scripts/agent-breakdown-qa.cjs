@@ -36,17 +36,16 @@ const question = 'so can u list down if i wanna research about my SDC hackathon 
     const count = await page.locator('.agent-items li').count(); assert.ok(count >= 2 && count <= 6);
     await page.screenshot({ path: 'work/screenshots/agent-goal-breakdown.png', fullPage: true });
     await page.getByRole('button', { name: 'Add tasks', exact: true }).click();
-    await page.getByRole('button', { name: 'Undo task additions', exact: true }).waitFor();
+    await page.getByRole('heading', { name: /^Today/ }).waitFor(); // approval opens the planned day
     const after = (await page.evaluate(() => window.notelah.load())).state;
     assert.deepEqual(after.tasks.slice(0, original.tasks.length), original.tasks);
     assert.equal(after.tasks.length, original.tasks.length + count);
-    assert.ok(after.tasks.slice(original.tasks.length).every(t => t.plannedDate === null && !t.completedAt));
-    await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: /^Later/ }).click();
+    assert.ok(after.tasks.slice(original.tasks.length).every(t => /^\d{4}-\d{2}-\d{2}$/.test(t.plannedDate) && !t.completedAt));
     await page.getByText(after.tasks[1].title, { exact: true }).filter({ visible: true }).waitFor();
     await page.getByRole('button', { name: 'Chat', exact: true }).click();
     await page.getByRole('button', { name: 'Undo task additions', exact: true }).click();
     await page.getByText('Added tasks removed.', { exact: true }).waitFor();
     assert.deepEqual((await page.evaluate(() => window.notelah.load())).state, original);
-    console.log('Goal breakdown QA passed: exact screenshot wording, live tools, new-task draft, approval, Later, undo, and unrelated tasks preserved.');
+    console.log('Goal breakdown QA passed: exact screenshot wording, live tools, new-task draft, approval, Today, undo, and unrelated tasks preserved.');
   } finally { clearInterval(monitor); await app.close(); assert.ok(root.startsWith(path.resolve('work') + path.sep)); await fs.rm(root, { recursive: true, force: true }); }
 })().catch(e => { console.error(e); process.exit(1); });

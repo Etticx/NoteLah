@@ -45,7 +45,7 @@ const assert = require('node:assert/strict');
     assert.match(await page.locator('.agent-plan').innerText(), /search_notes/);
     await page.screenshot({ path: 'work/screenshots/agent-plan.png', fullPage: true });
     await page.getByRole('button', { name: 'Apply plan', exact: true }).click();
-    await page.getByRole('button', { name: 'Undo plan', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Undo plan', exact: true }).waitFor({ state: 'attached' }); // approval leaves Chat for the planned day
     const applied = (await page.evaluate(() => window.notelah.load())).state;
     assert.ok(applied.tasks.some(t => t.plannedDate === '2026-10-20'));
     assert.deepEqual(applied.notes, original.notes); assert.deepEqual(applied.profile, original.profile);

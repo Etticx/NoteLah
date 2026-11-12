@@ -47,7 +47,7 @@ class FixtureOllama extends Ollama {
     planner.request = async () => ({ message: { content: JSON.stringify(draftActions.shift()) } });
     const draft = await agent.plan({ question: 'What tasks do I need for hackathon research?', intent: 'breakdown', date: '2026-10-20', minutes: 30, preference: '', history: [], folderId: null, chatModel: 'chat', embeddingModel: 'embed' });
     assert.equal(draft.kind, 'task_draft'); assert.deepEqual(store.load(), original);
-    const added = await agent.apply(draft.token); assert.equal(added.state.tasks.length, original.tasks.length + 1); assert.equal(added.state.tasks.at(-1).plannedDate, null);
+    const added = await agent.apply(draft.token); assert.equal(added.state.tasks.length, original.tasks.length + 1); assert.equal(added.state.tasks.at(-1).plannedDate, '2026-10-20');
     assert.deepEqual(await agent.undo(added.receipt.token), original); agent.clear();
     for (const name of ['LICENSE', 'PRIVACY.md', 'DISCLAIMER.md', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_LICENSES.txt']) assert.ok((await fs.stat(path.join(resources, 'app.asar', name))).size > 0);
     console.log('Packaged smoke passed: RAG, agent scheduling and task creation, approval/undo, SQLite, PDF assets, and release documents. Generation stubbed; live models tested separately.');
