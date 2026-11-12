@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, MessageCircle, FileText, Folder, HardDrive, Inbox, Leaf, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, MessageCircle, FileText, Folder, HardDrive, Inbox, Leaf, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import Modal from "./dialog";
 import ActivityGrid from "./activity-grid";
 import ChatWorkspace from "./chat-workspace";
@@ -28,7 +28,8 @@ export default function Workspace() {
   const [selectedDay, setSelectedDay] = useState("2000-01-01");
   const [today, setToday] = useState("2000-01-01");
   const [entry, setEntry] = useState("");
-  const [handoff, setHandoff] = useState<{ text: string; date: string } | null>(null);
+  const [goal, setGoal] = useState("");
+  const [handoff, setHandoff] =useState<{ text: string; date: string } | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -202,6 +203,10 @@ export default function Workspace() {
             return <button key={day} onClick={() => setSelectedDay(day)} className={`week-day${day === selectedDay ? " active" : ""}${day === today ? " today" : ""}`} aria-pressed={day === selectedDay} aria-label={`${friendlyDay(day)}, ${scheduled.length} planned tasks`}><span>{friendlyDay(day, { weekday: "short" })}</span><strong>{parseDay(day).getDate()}</strong><div className="week-marks">{scheduled.length ? <><span className={count > 0 ? "has-completed" : "has-tasks"} /><span className="week-task-count">{scheduled.length}</span></> : <span className="no-tasks" />}</div></button>;
           })}</div>}
           {view === "today" && selectedIsToday && overdue.length > 0 && <div className="carryover"><div><ArrowRight size={15} /><span>{overdue.length} unfinished task{overdue.length === 1 ? "" : "s"} from earlier days</span></div><button className="text-button" onClick={() => persist({ ...stateRef.current, tasks: stateRef.current.tasks.map((task) => overdue.some((old) => old.id === task.id) ? { ...task, plannedDate: today, updatedAt: new Date().toISOString() } : task) })}>Bring to today</button></div>}
+          {view === "today" && info?.mode === "desktop" && !isSample && <>
+            <form className="agent-prompt" onSubmit={(event) => { event.preventDefault(); if (!goal.trim()) return; setHandoff({ text: goal.trim(), date: selectedDay }); setGoal(""); go("chat"); }}><Sparkles size={17} strokeWidth={1.65} /><input aria-label="Describe a goal to break into tasks" placeholder="What do you need to get done? I'll suggest tasks…" value={goal} maxLength={2000} onChange={(event) => setGoal(event.target.value)} /><button className="button primary" disabled={!goal.trim()}>Suggest tasks</button></form>
+            {!visible.length && <div className="agent-examples" aria-label="Example goals">{["Prepare for my exam next week", "Get started on my project report", "Plan my presentation slides"].map((example) => <button key={example} type="button" onClick={() => setGoal(example)}>{example}</button>)}</div>}
+          </>}
           <section className="tasks-section"><div className="section-heading"><h2>{view === "later" ? "Ideas & things to do" : "To do"}<span className="section-count">{pending.length}</span></h2><span className="section-hint">{view === "later" ? "No date needed" : "Keep it manageable"}</span></div>
             <TaskList items={pending} />
             <form className="add-task" onSubmit={addTask}><Plus size={19} strokeWidth={1.65} /><input ref={addInput} aria-label={view === "later" ? "Add an idea for later" : "Add a task"} placeholder={view === "later" ? "Something on your mind?" : "Add something to do…"} value={entry} maxLength={500} disabled={!info || busy} onChange={(event) => setEntry(event.target.value)} /><button type="submit" disabled={!entry.trim() || !info} className={entry.trim() ? "add-submit" : "add-key"} aria-label="Add task">{entry.trim() ? <ArrowRight size={16} /> : <kbd>↵</kbd>}</button></form>

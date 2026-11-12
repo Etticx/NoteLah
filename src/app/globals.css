@@ -172,6 +172,14 @@ h2 { font-size: 14px; font-weight: 600; letter-spacing: -.2px; }
 .sample-link:hover { color: #68805a; }
 .carryover { display: flex; justify-content: space-between; gap: 15px; align-items: center; background: #f7f8f3; padding: 13px 15px; margin-bottom: 25px; border-radius: 4px; font-size: 11px; color: #8d997e; }
 .carryover > div { display: flex; align-items: center; gap: 8px; }
+.agent-prompt { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 14px; margin-bottom: 25px; border: 1px solid var(--line); border-radius: 7px; color: var(--green); }
+.agent-prompt:focus-within { border-color: #a7b9a9; }
+.agent-prompt input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; padding: 5px 0; }
+.agent-prompt input:focus-visible { outline: none; }
+.agent-prompt input::placeholder { color: #858a7e; }
+.agent-examples { display: flex; flex-wrap: wrap; gap: 8px; margin: -13px 0 25px; }
+.agent-examples button { border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 11px; color: var(--muted); }
+.agent-examples button:hover { background: var(--hover); color: var(--ink); }
 .profile-cover { height: 145px; background: #f0f1e9; border-radius: 5px; position: relative; overflow: hidden; }
 .cover-label { position: absolute; right: 24px; bottom: 22px; font-size: 9px; letter-spacing: 2.3px; color: #a5ad95; }
 .cover-lines { position: absolute; inset: 0; display: flex; gap: 26px; padding-left: 27px; align-items: flex-end; }
