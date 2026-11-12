@@ -11,7 +11,7 @@ import AgentPlan from "./agent-plan";
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': (?:Error: )?/, "");
 type Turn = { question: string; reply?: RagReply; agent?: AgentReply; receipt?: AgentReceipt; undone?: boolean; error?: string };
-export default function ChatWorkspace({ state, enabled, visible, onAgentAction }: { state: WorkspaceState; enabled: boolean; visible: boolean; onAgentAction: (kind: "apply" | "undo", token: string) => Promise<AgentReceipt | undefined> }) {
+export default function ChatWorkspace({ state, enabled, visible, handoff, onHandoffTaken, onAgentAction }: { state: WorkspaceState; enabled: boolean; visible: boolean; handoff: { text: string; date: string } | null; onHandoffTaken: () => void; onAgentAction: (kind: "apply" | "undo", token: string) => Promise<AgentReceipt | undefined> }) {
   const [mode, setMode] = useState<"notes" | "plan" | "breakdown">("notes");
   const [minutes, setMinutes] = useState(120);
   const [date, setDate] = useState(localDate);
@@ -30,6 +30,7 @@ export default function ChatWorkspace({ state, enabled, visible, onAgentAction }
   const [source, setSource] = useState<{ note: Note; passage: RagSource } | null>(null);
   const initialized = useRef(false);
   const end = useRef<HTMLDivElement>(null);
+  const pendingSend = useRef<{ text: string; date: string } | null>(null);
 
   async function refreshModels() {
     if (!window.notelah) return;
@@ -53,10 +54,15 @@ export default function ChatWorkspace({ state, enabled, visible, onAgentAction }
   useEffect(() => { if (visible) end.current?.scrollIntoView({ block: "nearest" }); }, [turns, busy, visible]);
   useEffect(() => { if (folder && !state.folders.some((item) => item.id === folder)) setFolder(""); }, [state.folders, folder]);
 
+  // A goal typed on Today arrives here: prefill the composer, then send once the models have loaded.
+  useEffect(() => { if (!handoff) return; pendingSend.current = handoff; setMode("breakdown"); setDate(handoff.date); setQuestion(handoff.text); onHandoffTaken(); }, [handoff]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const next = pendingSend.current; if (next && enabled && !busy && !applying && chatModel && embeddingModel) void send(next.text, "breakdown", next.date); });
+
   const ask = (event: React.FormEvent) => { event.preventDefault(); void send(question.trim(), mode, date); };
   // mode and date are arguments (shadowing state) so a hand-off can send before its state updates land.
   async function send(text: string, mode: "notes" | "plan" | "breakdown", date: string) {
     if (!window.notelah || !enabled || busy || applying || !text || !chatModel || !embeddingModel) return;
+    pendingSend.current = null;
     if (mode !== "notes" && (!date ||!Number.isInteger(minutes) || minutes < 5 || minutes > 480)) { setError("Choose a plan date and 5–480 available minutes."); return; }
     setQuestion(""); setBusy(true); setError(""); setProgress({ busy: true, message: "Starting local search", completed: 0, total: 0 });
     const index = turns.length;
