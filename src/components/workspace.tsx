@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, MessageCircle, FileText, Folder, HardDrive, Inbox, Leaf, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Circle, MessageCircle, FileText, Folder, HardDrive, Inbox, Menu, MoreHorizontal, Pencil, Plus, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import Modal from "./dialog";
 import ActivityGrid from "./activity-grid";
 import ChatWorkspace from "./chat-workspace";
@@ -187,7 +187,6 @@ export default function Workspace() {
       <p className="nav-caption">WORKSPACE</p>
       <nav aria-label="Main navigation">{navigation.map(({ id, label, icon: Icon }) => <button key={id} className={`nav-item${view === id ? " selected" : ""}`} aria-current={view === id ? "page" : undefined} onClick={() => go(id)}><Icon size={17} strokeWidth={1.65} /><span>{label}</span>{id === "later" && laterCount > 0 && <span className="nav-count">{laterCount}</span>}</button>)}</nav>
       <div className="sidebar-spacer" />
-      <div className="sidebar-note"><Leaf size={18} strokeWidth={1.5} /><p>A place for your everyday.</p><span>One thing at a time.</span></div>
       <div className="sidebar-footer"><span className="status-dot" /><span>{info?.mode === "desktop" ? "On your laptop" : "Saved in this browser"}</span><button className="icon-button" aria-label="Storage settings" onClick={() => go("settings")}><HardDrive size={14} /></button></div>
     </aside>
     {mobileNav && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
@@ -212,10 +211,8 @@ export default function Workspace() {
           <section className="tasks-section"><div className="section-heading"><h2>{view === "later" ? "Ideas & things to do" : "To do"}<span className="section-count">{pending.length}</span></h2><span className="section-hint">{view === "later" ? "No date needed" : "Keep it manageable"}</span></div>
             <TaskList items={pending} />
             <form className="add-task" onSubmit={addTask}><Plus size={19} strokeWidth={1.65} /><input ref={addInput} aria-label={view === "later" ? "Add an idea for later" : "Add a task"} placeholder={view === "later" ? "Something on your mind?" : "Add something to do…"} value={entry} maxLength={500} disabled={!info || busy} onChange={(event) => setEntry(event.target.value)} /><button type="submit" disabled={!entry.trim() || !info} className={entry.trim() ? "add-submit" : "add-key"} aria-label="Add task">{entry.trim() ? <ArrowRight size={16} /> : <kbd>↵</kbd>}</button></form>
-            {!visible.length && <div className="empty-note"><span className="empty-rule" /><p>{view === "later" ? "A thought doesn't need a plan yet." : "Start with one thing. The rest can follow."}</p></div>}
           </section>
           {completed.length > 0 && <section className="completed-section"><div className="section-heading"><h2><CheckCheck size={16} />Completed<span className="section-count">{completed.length}</span></h2></div><TaskList items={completed} done /></section>}
-          {view === "today" && <footer className="day-footer"><Leaf size={15} /><span>{completed.length ? "Every finished task leaves a little green." : "Your progress will find a home on your profile."}</span><button className="text-button" onClick={() => go("profile")}>View activity<ArrowUpRight size={13} /></button></footer>}
           {!state.tasks.length && info && <button className="sample-link" onClick={sampleWorkspace}>Want to look around first? Try a sample workspace <ArrowUpRight size={12} /></button>}
         </> : view === "notes" ? <NotesWorkspace state={state} info={info} busy={busy} onChange={(update) => persist(update(stateRef.current))} onDraftDirty={setNoteDraftDirty} onImport={(folderId) => action(async () => { const result = await window.notelah!.importNotes(folderId); if (result) { stateRef.current = result.state; setState(result.state); setInfo(result.info); setNotice("Files copied into your library."); } })} onDropFiles={(folderId, files) => action(async () => { const result = await window.notelah!.importDroppedNotes(folderId, files); stateRef.current = result.state; setState(result.state); setInfo(result.info); setNotice("Files copied into your library."); })} onOpenFile={(id) => action(async () => { await window.notelah!.openNoteFile(id); })} /> : view === "profile" ? <>
           <div className="profile-cover"><div className="cover-lines" aria-hidden="true"><span /><span /><span /><span /><span /></div><span className="cover-label">THE DAYS ADD UP</span></div>
