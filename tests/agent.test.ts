@@ -7,7 +7,7 @@ import { DatabaseStore } from "../electron/database";
 import { Ollama } from "../electron/ollama";
 import { createNote, createTask } from "../src/lib/model";
 import type { AgentRequest } from "../src/lib/agent-types";
-import { agentToolFormat, parseAgentAction, planningClarification, selectedGoalDomain, wantsTaskBreakdown } from "../electron/agent-tools";
+import { agentToolFormat, parseAgentAction, selectedGoalDomain, wantsTaskBreakdown } from "../electron/agent-tools";
 
 const tool = (name: string, fields = {}) => ({ tool: name, query: "", taskId: "", summary: "A realistic plan", items: [], ...fields });
 class Planner extends Ollama {
@@ -172,20 +172,7 @@ test("repeated malformed model output returns a helpful clarification without a 
     f.llm.actions = [{ tool: "unknown" }, { tool: "unknown" }];
     const reply = await f.agent.plan(f.request);
     assert.equal(reply.kind, "clarification"); assert.equal(reply.token, null); assert.equal(f.llm.prompts.length, 2);
-    assert.match(reply.summary, /Ask my notes/); assert.match(reply.summary, /can't browse the web/);
-    assert.deepEqual(f.store.load(), f.state);
-  } finally { await f.cleanup(); }
-});
-
-test("broad hackathon research asks for scope clarification before model calls or scheduling unrelated tasks", async () => {
-  const f = await setup();
-  try {
-    const question = "i wanna research about what to do on SDC Hackathon it has 2 theme, many track of SDG it must use replit and repod";
-    const reply = await f.agent.plan({ ...f.request, question });
-    assert.equal(reply.kind, "clarification"); assert.equal(reply.token, null); assert.deepEqual(reply.items, []);
-    assert.equal(f.llm.prompts.length, 0); assert.match(reply.summary, /Ask my notes/);
-    assert.equal(planningClarification("Plan 30 minutes for my hackathon research task"), null);
-    assert.equal(planningClarification("Research my notes and plan my day"), null);
+    assert.match(reply.summary, /No tasks were changed/);
     assert.deepEqual(f.store.load(), f.state);
   } finally { await f.cleanup(); }
 });
@@ -193,10 +180,24 @@ test("broad hackathon research asks for scope clarification before model calls o
 const breakdownQuestion = "so can u list down if i wanna research about my SDC hackathon project, what task i need to do? i have 2 domains im on second domain and has many SDG tracks";
 const proposeTasks = (drafts = [{ title: "Compare research problems in the selected domain", note: "Compare impact and feasibility for the second domain before choosing a problem." }, { title: "Verify the official brief and track requirements", note: "Read the organiser's brief; confirm eligible SDG tracks and tools." }]) => ({ tool: "propose_tasks", summary: "Suggested research checklist for your selected domain", query: "", drafts, assumptions: ["The official track names and rules still need to be verified."] });
 
+test("plan mode drafts new tasks from the model's own knowledge when no existing task fits", async () => {
+  const f = await setup();
+  try {
+    const question = "i wanna research about what to do on SDC Hackathon it has 2 theme, many track of SDG it must use replit and repod";
+    f.llm.actions = [tool("list_tasks"), proposeTasks()];
+    const reply = await f.agent.plan({ ...f.request, question });
+    assert.equal(reply.kind, "task_draft"); assert.equal(reply.draftTasks?.length, 2); assert.ok(reply.token);
+    assert.equal(f.llm.prompts.length, 2);
+    assert.deepEqual(f.store.load(), f.state);
+    await f.agent.apply(reply.token!);
+    assert.equal(f.store.load().tasks.filter(t => t.plannedDate === f.request.date).length, 2);
+  } finally { await f.cleanup(); }
+});
+
 test("task-breakdown wording bypasses the overbroad research gate and drafts new tasks for the chosen day with review and undo", async () => {
   const f = await setup();
   try {
-    assert.equal(wantsTaskBreakdown(breakdownQuestion), true); assert.equal(planningClarification(breakdownQuestion), null);
+    assert.equal(wantsTaskBreakdown(breakdownQuestion), true);
     assert.equal(wantsTaskBreakdown("List my tasks and search my hackathon notes. Propose a 60-minute plan for the hackathon prototype and slides."), false);
     assert.equal(wantsTaskBreakdown("List unfinished tasks and plan my day"), false);
     const original = await fs.readFile(f.store.databasePath);

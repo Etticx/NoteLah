@@ -22,14 +22,6 @@ export function mixesDomains(text: string): boolean {
   return /\b(?:both domains|two domains|each domain|per domain|connecting (?:your )?(?:two|both) domains|intersection of (?:your )?(?:two|both) domains)\b/i.test(text);
 }
 
-export function planningClarification(question: string): string | null {
-  if (wantsTaskBreakdown(question)) return null;
-  // A conservative English scope check, not a general intent classifier. Ask rather than invent a schedule.
-  const exploration = /\b(research|brainstorm|ideas?|themes?|tracks?|requirements?)\b|\bwhat (?:to do|can (?:i|we) (?:build|make))\b/i.test(question);
-  const scheduling = /\b(plan|planning|schedule|scheduling|prioriti[sz]e|replan|allocate|organize|organise|timebox|minutes?|hours?)\b|\bwork on\b/i.test(question);
-  return exploration && !scheduling ? "Would you like to explore this topic or schedule an existing task? Plan my day schedules unfinished tasks; it doesn't research project ideas or verify event rules. Use Ask my notes for documents you've imported, or name an existing task and ask me to plan time for it. Neither mode browses the web." : null;
-}
-
 export function parseAgentAction(content: string) {
   const raw = envelope.parse(JSON.parse(content));
   // Unused fields cannot authorize anything. Validate only the arguments of the selected tool.
@@ -61,8 +53,9 @@ export function breakdownToolFormat(allowed: string[]) {
 }
 
 export function agentToolFormat(allowed: string[], taskIds: string[], minutes: number) {
-  return { type: "object", additionalProperties: false, required: ["tool", "query", "taskId", "summary", "items"], properties: {
+  return { type: "object", additionalProperties: false, required: ["tool", "query", "taskId", "summary", "items", "drafts", "assumptions"], properties: {
     tool: { type: "string", enum: allowed }, query: { type: "string", maxLength: 300 },
+    drafts: breakdownToolFormat(allowed).properties.drafts, assumptions: breakdownToolFormat(allowed).properties.assumptions,
     taskId: { type: "string", enum: ["", ...taskIds] }, summary: { type: "string", maxLength: 1000 },
     items: { type: "array", maxItems: Math.min(8, taskIds.length), items: { type: "object", additionalProperties: false, required: ["taskId", "minutes", "reason"], properties: {
       taskId: taskIds.length ? { type: "string", enum: taskIds } : { type: "string" }, minutes: { type: "integer", minimum: 5, maximum: minutes }, reason: { type: "string", minLength: 1, maxLength: 400 },
